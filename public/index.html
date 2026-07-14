@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>A.U.R.A.</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-heading">
+        <img class="app-logo" src="/iese-logo.png" alt="IESE">
+        <div>
+          <p class="eyebrow">A.U.R.A. Automated UI Rendering Assistant</p>
+          <h1>Generador HTML</h1>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <form id="eventForm" class="tool-grid">
+        <div class="form-stack">
+          <details class="panel collapsible-panel">
+            <summary class="panel-head collapsible-summary">
+              <h2>Datos del evento</h2>
+            </summary>
+
+            <div class="module-divider"><span>Configuracion general</span></div>
+
+            <div class="field-grid two">
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="eventName">Nombre del evento</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showEventName" value="false">
+                    <input type="checkbox" name="showEventName" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="eventName" autocomplete="off" required placeholder="AI Breakfast Madrid">
+              </div>
+              <label>
+                Idioma del email
+                <select name="emailLanguage" id="emailLanguage">
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Plantilla
+                <select name="templateVariant" id="templateVariant">
+                  <option value="generic">Gen&eacute;rico</option>
+                  <option value="membership">Membres&iacute;a</option>
+                  <option value="weeklyCalendar">Recordatorio semanal / calendario de eventos</option>
+                </select>
+              </label>
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="eventType">Sobret&iacute;tulo</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showEventType" value="false">
+                    <input type="checkbox" name="showEventType" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="eventType" id="eventType" autocomplete="off" placeholder="Desayuno ejecutivo">
+              </div>
+            </div>
+
+            <div class="field-grid two">
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="emailHeadline">Titular del email</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showEmailHeadline" value="false">
+                    <input type="checkbox" name="showEmailHeadline" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="emailHeadline" placeholder="Some moments are too good to miss">
+              </div>
+              <label>
+                Texto del boton
+                <input name="ctaLabel" placeholder="REGISTRARSE">
+              </label>
+            </div>
+
+            <div class="module-divider"><span>Cabecera e imagen hero</span></div>
+
+            <label>
+              Imagen de cabecera
+              <input name="heroImageUrl" type="url" placeholder="https://...">
+            </label>
+
+            <div class="field-grid two">
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="heroTitleText">Titulo sobre imagen</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showHeroTitle" value="false">
+                    <input type="checkbox" name="showHeroTitle" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="heroTitleText" placeholder="Navegando la explosion de la">
+              </div>
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="heroSubtitleText">Subtitulo sobre imagen</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showHeroSubtitle" value="false">
+                    <input type="checkbox" name="showHeroSubtitle" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="heroSubtitleText" placeholder="Inteligencia Artificial">
+              </div>
+            </div>
+
+            <div class="field-grid two">
+              <label class="check-field">
+                <input type="hidden" name="showHeroTextShadow" value="false">
+                <input type="checkbox" name="showHeroTextShadow" value="true" checked>
+                Degradado del texto sobre imagen
+              </label>
+              <label class="check-field">
+                <input type="hidden" name="showHeroSubtitleHighlight" value="false">
+                <input type="checkbox" name="showHeroSubtitleHighlight" value="true" checked>
+                Fondo rojo del subtitulo
+              </label>
+            </div>
+
+            <div class="module-divider"><span>Fecha, registro y ubicacion</span></div>
+
+            <div class="field-grid three">
+              <label>
+                Fecha
+                <input name="eventDate" type="date" required>
+              </label>
+              <label>
+                Inicio
+                <input name="startTime" type="time" required>
+              </label>
+              <label>
+                Fin
+                <input name="endTime" type="time">
+              </label>
+            </div>
+
+            <div class="module-divider"><span>Ponentes</span></div>
+
+            <div class="field-grid two">
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="timezone">Zona horaria</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showTimezone" value="false">
+                    <input type="checkbox" name="showTimezone" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="timezone" required placeholder="Europe/Madrid">
+              </div>
+              <label>
+                URL de registro
+                <input name="registrationUrl" type="url" required placeholder="https://example.com/registro">
+              </label>
+            </div>
+
+            <div class="field-grid two">
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="venue">Lugar</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showVenue" value="false">
+                    <input type="checkbox" name="showVenue" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="venue" placeholder="Oficinas Madrid / Online">
+              </div>
+              <div class="field-control">
+                <div class="field-control-head">
+                  <label class="field-label" for="city">Ciudad</label>
+                  <label class="visibility-switch">
+                    <input type="hidden" name="showCity" value="false">
+                    <input type="checkbox" name="showCity" value="true" checked>
+                    <span></span>
+                    Mostrar
+                  </label>
+                </div>
+                <input name="city" placeholder="Madrid">
+              </div>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Numero de ponentes
+                <select name="speakerCount" id="speakerCount">
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="speakersFields" class="speakers-fields">
+              <section class="speaker-editor" data-speaker-index="1">
+                <div class="speaker-photo-preview" data-photo-preview="1">Foto<br>200 x 200</div>
+                <div class="speaker-inputs">
+                  <div class="field-grid two">
+                    <label>
+                      Ponente 1
+                      <input name="speakerName1" placeholder="Nombre Apellido">
+                    </label>
+                    <label>
+                      Cargo del ponente 1
+                      <input name="speakerTitle1" placeholder="VP Marketing">
+                    </label>
+                  </div>
+                  <label>
+                    Foto del ponente 1
+                    <input name="speakerPhotoUrl1" type="url" placeholder="https://...">
+                  </label>
+                  <div class="field-control">
+                    <div class="field-control-head">
+                      <label class="field-label" for="speakerDescription1">Descripción e historia del ponente 1</label>
+                      <label class="visibility-switch">
+                        <input type="hidden" name="showSpeakerDescription1" value="false">
+                        <input type="checkbox" name="showSpeakerDescription1" value="true" checked>
+                        <span></span>
+                        Mostrar
+                      </label>
+                    </div>
+                    <textarea name="speakerDescription1" id="speakerDescription1" rows="3" placeholder="Breve biografía, trayectoria o detalles relevantes del ponente."></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="speaker-editor" data-speaker-index="2" hidden>
+                <div class="speaker-photo-preview" data-photo-preview="2">Foto<br>200 x 200</div>
+                <div class="speaker-inputs">
+                  <div class="field-grid two">
+                    <label>
+                      Ponente 2
+                      <input name="speakerName2" placeholder="Nombre Apellido">
+                    </label>
+                    <label>
+                      Cargo del ponente 2
+                      <input name="speakerTitle2" placeholder="VP Marketing">
+                    </label>
+                  </div>
+                  <label>
+                    Foto del ponente 2
+                    <input name="speakerPhotoUrl2" type="url" placeholder="https://...">
+                  </label>
+                  <div class="field-control">
+                    <div class="field-control-head">
+                      <label class="field-label" for="speakerDescription2">Descripción e historia del ponente 2</label>
+                      <label class="visibility-switch">
+                        <input type="hidden" name="showSpeakerDescription2" value="false">
+                        <input type="checkbox" name="showSpeakerDescription2" value="true" checked>
+                        <span></span>
+                        Mostrar
+                      </label>
+                    </div>
+                    <textarea name="speakerDescription2" id="speakerDescription2" rows="3" placeholder="Breve biografía, trayectoria o detalles relevantes del ponente."></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="speaker-editor" data-speaker-index="3" hidden>
+                <div class="speaker-photo-preview" data-photo-preview="3">Foto<br>200 x 200</div>
+                <div class="speaker-inputs">
+                  <div class="field-grid two">
+                    <label>
+                      Ponente 3
+                      <input name="speakerName3" placeholder="Nombre Apellido">
+                    </label>
+                    <label>
+                      Cargo del ponente 3
+                      <input name="speakerTitle3" placeholder="VP Marketing">
+                    </label>
+                  </div>
+                  <label>
+                    Foto del ponente 3
+                    <input name="speakerPhotoUrl3" type="url" placeholder="https://...">
+                  </label>
+                  <div class="field-control">
+                    <div class="field-control-head">
+                      <label class="field-label" for="speakerDescription3">Descripción e historia del ponente 3</label>
+                      <label class="visibility-switch">
+                        <input type="hidden" name="showSpeakerDescription3" value="false">
+                        <input type="checkbox" name="showSpeakerDescription3" value="true" checked>
+                        <span></span>
+                        Mostrar
+                      </label>
+                    </div>
+                    <textarea name="speakerDescription3" id="speakerDescription3" rows="3" placeholder="Breve biografía, trayectoria o detalles relevantes del ponente."></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="speaker-editor" data-speaker-index="4" hidden>
+                <div class="speaker-photo-preview" data-photo-preview="4">Foto<br>200 x 200</div>
+                <div class="speaker-inputs">
+                  <div class="field-grid two">
+                    <label>
+                      Ponente 4
+                      <input name="speakerName4" placeholder="Nombre Apellido">
+                    </label>
+                    <label>
+                      Cargo del ponente 4
+                      <input name="speakerTitle4" placeholder="VP Marketing">
+                    </label>
+                  </div>
+                  <label>
+                    Foto del ponente 4
+                    <input name="speakerPhotoUrl4" type="url" placeholder="https://...">
+                  </label>
+                  <div class="field-control">
+                    <div class="field-control-head">
+                      <label class="field-label" for="speakerDescription4">Descripción e historia del ponente 4</label>
+                      <label class="visibility-switch">
+                        <input type="hidden" name="showSpeakerDescription4" value="false">
+                        <input type="checkbox" name="showSpeakerDescription4" value="true" checked>
+                        <span></span>
+                        Mostrar
+                      </label>
+                    </div>
+                    <textarea name="speakerDescription4" id="speakerDescription4" rows="3" placeholder="Breve biografía, trayectoria o detalles relevantes del ponente."></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="speaker-editor" data-speaker-index="5" hidden>
+                <div class="speaker-photo-preview" data-photo-preview="5">Foto<br>200 x 200</div>
+                <div class="speaker-inputs">
+                  <div class="field-grid two">
+                    <label>
+                      Ponente 5
+                      <input name="speakerName5" placeholder="Nombre Apellido">
+                    </label>
+                    <label>
+                      Cargo del ponente 5
+                      <input name="speakerTitle5" placeholder="VP Marketing">
+                    </label>
+                  </div>
+                  <label>
+                    Foto del ponente 5
+                    <input name="speakerPhotoUrl5" type="url" placeholder="https://...">
+                  </label>
+                  <div class="field-control">
+                    <div class="field-control-head">
+                      <label class="field-label" for="speakerDescription5">Descripción e historia del ponente 5</label>
+                      <label class="visibility-switch">
+                        <input type="hidden" name="showSpeakerDescription5" value="false">
+                        <input type="checkbox" name="showSpeakerDescription5" value="true" checked>
+                        <span></span>
+                        Mostrar
+                      </label>
+                    </div>
+                    <textarea name="speakerDescription5" id="speakerDescription5" rows="3" placeholder="Breve biografía, trayectoria o detalles relevantes del ponente."></textarea>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="module-divider"><span>Agenda</span></div>
+
+            <div class="field-control">
+              <div class="field-control-head">
+                <label class="field-label" for="agendaItems">Agenda</label>
+                <label class="visibility-switch">
+                  <input type="hidden" name="showAgenda" value="false">
+                  <input type="checkbox" name="showAgenda" value="true" checked>
+                  <span></span>
+                  Mostrar
+                </label>
+              </div>
+              <textarea name="agendaItems" rows="5" placeholder="09:30 | Welcome remarks | IESE Business School&#10;09:45 | Keynote session | Professor name&#10;10:30 | Networking coffee"></textarea>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Organizador
+                <input name="hostName" placeholder="Equipo de marketing">
+              </label>
+              <label>
+                URL de agenda
+                <input name="agendaUrl" type="url" placeholder="https://example.com/agenda">
+              </label>
+            </div>
+
+            <div class="module-divider"><span>Otros eventos</span></div>
+
+            <div class="field-control">
+              <div class="field-control-head">
+                <label class="field-label" for="otherEventsCount">Otros eventos</label>
+                <label class="visibility-switch">
+                  <input type="hidden" name="showOtherEvents" value="false">
+                  <input type="checkbox" name="showOtherEvents" value="true" checked>
+                  <span></span>
+                  Mostrar
+                </label>
+              </div>
+              <div class="field-grid two">
+                <label>
+                  Titulo del modulo
+                  <input name="otherEventsTitle" id="otherEventsTitle" placeholder="Otros eventos para ti">
+                </label>
+                <label>
+                  Numero de eventos
+                  <select name="otherEventsCount" id="otherEventsCount">
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                  </select>
+                </label>
+              </div>
+              <div id="otherEventsFields" class="other-events-fields">
+                <section class="other-event-editor" data-other-event-index="1">
+                  <div class="field-grid two">
+                    <label>
+                      Titulo del evento 1
+                      <input name="otherEventTitle1" placeholder="Data-driven pricing">
+                    </label>
+                    <label>
+                      Lugar 1
+                      <input name="otherEventVenue1" placeholder="IESE Madrid / Online">
+                    </label>
+                  </div>
+                  <label>
+                    Descripcion 1
+                    <textarea name="otherEventDescription1" rows="2" placeholder="Breve descripcion del evento."></textarea>
+                  </label>
+                  <div class="field-grid three">
+                    <label>
+                      Fecha 1
+                      <input name="otherEventDate1" placeholder="Thursday, June 11">
+                    </label>
+                    <label>
+                      Hora 1
+                      <input name="otherEventTime1" placeholder="3:00 pm">
+                    </label>
+                    <label>
+                      Enlace de mas informacion 1
+                      <input name="otherEventUrl1" type="url" placeholder="https://...">
+                    </label>
+                  </div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="2">
+                  <div class="field-grid two">
+                    <label>
+                      Titulo del evento 2
+                      <input name="otherEventTitle2" placeholder="IA en la cadena de suministro">
+                    </label>
+                    <label>
+                      Lugar 2
+                      <input name="otherEventVenue2" placeholder="IESE Barcelona">
+                    </label>
+                  </div>
+                  <label>
+                    Descripcion 2
+                    <textarea name="otherEventDescription2" rows="2" placeholder="Breve descripcion del evento."></textarea>
+                  </label>
+                  <div class="field-grid three">
+                    <label>
+                      Fecha 2
+                      <input name="otherEventDate2" placeholder="Lunes, 11 de junio">
+                    </label>
+                    <label>
+                      Hora 2
+                      <input name="otherEventTime2" placeholder="3:00 pm">
+                    </label>
+                    <label>
+                      Enlace de mas informacion 2
+                      <input name="otherEventUrl2" type="url" placeholder="https://...">
+                    </label>
+                  </div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="3" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 3<input name="otherEventTitle3" placeholder="Titulo"></label><label>Lugar 3<input name="otherEventVenue3" placeholder="Lugar"></label></div>
+                  <label>Descripcion 3<textarea name="otherEventDescription3" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 3<input name="otherEventDate3" placeholder="Fecha"></label><label>Hora 3<input name="otherEventTime3" placeholder="Hora"></label><label>Enlace de mas informacion 3<input name="otherEventUrl3" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="4" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 4<input name="otherEventTitle4" placeholder="Titulo"></label><label>Lugar 4<input name="otherEventVenue4" placeholder="Lugar"></label></div>
+                  <label>Descripcion 4<textarea name="otherEventDescription4" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 4<input name="otherEventDate4" placeholder="Fecha"></label><label>Hora 4<input name="otherEventTime4" placeholder="Hora"></label><label>Enlace de mas informacion 4<input name="otherEventUrl4" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="5" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 5<input name="otherEventTitle5" placeholder="Titulo"></label><label>Lugar 5<input name="otherEventVenue5" placeholder="Lugar"></label></div>
+                  <label>Descripcion 5<textarea name="otherEventDescription5" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 5<input name="otherEventDate5" placeholder="Fecha"></label><label>Hora 5<input name="otherEventTime5" placeholder="Hora"></label><label>Enlace de mas informacion 5<input name="otherEventUrl5" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="6" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 6<input name="otherEventTitle6" placeholder="Titulo"></label><label>Lugar 6<input name="otherEventVenue6" placeholder="Lugar"></label></div>
+                  <label>Descripcion 6<textarea name="otherEventDescription6" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 6<input name="otherEventDate6" placeholder="Fecha"></label><label>Hora 6<input name="otherEventTime6" placeholder="Hora"></label><label>Enlace de mas informacion 6<input name="otherEventUrl6" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="7" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 7<input name="otherEventTitle7" placeholder="Titulo"></label><label>Lugar 7<input name="otherEventVenue7" placeholder="Lugar"></label></div>
+                  <label>Descripcion 7<textarea name="otherEventDescription7" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 7<input name="otherEventDate7" placeholder="Fecha"></label><label>Hora 7<input name="otherEventTime7" placeholder="Hora"></label><label>Enlace de mas informacion 7<input name="otherEventUrl7" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="8" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 8<input name="otherEventTitle8" placeholder="Titulo"></label><label>Lugar 8<input name="otherEventVenue8" placeholder="Lugar"></label></div>
+                  <label>Descripcion 8<textarea name="otherEventDescription8" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 8<input name="otherEventDate8" placeholder="Fecha"></label><label>Hora 8<input name="otherEventTime8" placeholder="Hora"></label><label>Enlace de mas informacion 8<input name="otherEventUrl8" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="9" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 9<input name="otherEventTitle9" placeholder="Titulo"></label><label>Lugar 9<input name="otherEventVenue9" placeholder="Lugar"></label></div>
+                  <label>Descripcion 9<textarea name="otherEventDescription9" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 9<input name="otherEventDate9" placeholder="Fecha"></label><label>Hora 9<input name="otherEventTime9" placeholder="Hora"></label><label>Enlace de mas informacion 9<input name="otherEventUrl9" type="url" placeholder="https://..."></label></div>
+                </section>
+                <section class="other-event-editor" data-other-event-index="10" hidden>
+                  <div class="field-grid two"><label>Titulo del evento 10<input name="otherEventTitle10" placeholder="Titulo"></label><label>Lugar 10<input name="otherEventVenue10" placeholder="Lugar"></label></div>
+                  <label>Descripcion 10<textarea name="otherEventDescription10" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 10<input name="otherEventDate10" placeholder="Fecha"></label><label>Hora 10<input name="otherEventTime10" placeholder="Hora"></label><label>Enlace de mas informacion 10<input name="otherEventUrl10" type="url" placeholder="https://..."></label></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="module-divider"><span>Cierre</span></div>
+
+            <div class="field-grid two">
+              <label>
+                Titular de cierre
+                <input name="closingTitle" placeholder="Construyendo futuro juntos">
+              </label>
+              <label>
+                Texto de cierre
+                <input name="closingText" placeholder="Nos encantara compartir una sesion con ideas practicas.">
+              </label>
+            </div>
+
+            <div class="module-divider"><span>Recursos extra</span></div>
+
+            <div class="field-control">
+              <div class="field-control-head">
+                <label class="field-label" for="resourceTitle1">Recursos extra</label>
+                <label class="visibility-switch">
+                  <input type="hidden" name="showResources" value="false">
+                  <input type="checkbox" name="showResources" value="true" checked>
+                  <span></span>
+                  Mostrar
+                </label>
+              </div>
+            </div>
+
+            <div class="speaker-editor resource-editor">
+              <div class="speaker-inputs">
+                <div class="field-grid three">
+                  <label>
+                    Recurso 1
+                    <input name="resourceTitle1" placeholder="Mis Recursos y Servicios">
+                  </label>
+                  <label>
+                    URL recurso 1
+                    <input name="resourceUrl1" type="url" placeholder="https://...">
+                  </label>
+                  <label>
+                    Imagen recurso 1
+                    <input name="resourceImageUrl1" type="url" placeholder="https://prdt.iese.edu/l/501101/2026-06-12/5s844g/501101/1781279154M2o9AKlP/83aad42c35c5229cc7381cce991290c7.png">
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Recurso 2
+                    <input name="resourceTitle2" placeholder="Ver las e-Conferences">
+                  </label>
+                  <label>
+                    URL recurso 2
+                    <input name="resourceUrl2" type="url" placeholder="https://...">
+                  </label>
+                  <label>
+                    Imagen recurso 2
+                    <input name="resourceImageUrl2" type="url" placeholder="https://prdt.iese.edu/l/501101/2026-06-12/5s844k/501101/17812791544YzhOyL9/e5e5fbd5157dc7e81053039cbcc75b2b.png">
+                  </label>
+                </div>
+                <div class="field-grid three">
+                  <label>
+                    Recurso 3
+                    <input name="resourceTitle3" placeholder="Ir a Lifelong Learning">
+                  </label>
+                  <label>
+                    URL recurso 3
+                    <input name="resourceUrl3" type="url" placeholder="https://...">
+                  </label>
+                  <label>
+                    Imagen recurso 3
+                    <input name="resourceImageUrl3" type="url" placeholder="https://prdt.iese.edu/l/501101/2026-06-12/5s844c/501101/1781279154BaE9OsAs/f7afb8211e6ed511c4f674ad5cde78b1.png">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="module-divider"><span>CTA e imagen inferior</span></div>
+
+            <div class="field-control">
+              <div class="field-control-head">
+                <label class="field-label" for="eventsCtaUrl">CTA eventos web</label>
+                <label class="visibility-switch">
+                  <input type="hidden" name="showEventsCta" value="false">
+                  <input type="checkbox" name="showEventsCta" value="true" checked>
+                  <span></span>
+                  Mostrar
+                </label>
+              </div>
+              <div class="field-grid two">
+                <input name="eventsCtaLabel" id="eventsCtaLabel" placeholder="Ver todos los eventos en la web">
+                <input name="eventsCtaUrl" id="eventsCtaUrl" type="url" placeholder="https://www.iese.edu/events/">
+              </div>
+            </div>
+
+            <div class="field-control">
+              <div class="field-control-head">
+                <label class="field-label" for="fullWidthImageUrl">Imagen a anchura completa</label>
+                <label class="visibility-switch">
+                  <input type="hidden" name="showFullWidthImage" value="false">
+                  <input type="checkbox" name="showFullWidthImage" value="true" checked>
+                  <span></span>
+                  Mostrar
+                </label>
+              </div>
+              <div class="field-grid two">
+                <input name="fullWidthImageUrl" id="fullWidthImageUrl" type="url" placeholder="URL de la imagen">
+                <input name="fullWidthImageLinkUrl" id="fullWidthImageLinkUrl" type="url" placeholder="URL del enlace">
+              </div>
+            </div>
+          </details>
+
+          <details class="panel collapsible-panel">
+            <summary class="panel-head collapsible-summary">
+              <h2>Contenido del email</h2>
+            </summary>
+
+            <label>
+              Descripcion aproximada del evento
+              <textarea name="eventBrief" required rows="4" maxlength="1200" placeholder="Notas breves: objetivo del evento, publico invitado, temas clave, tono y cualquier detalle que deba aparecer."></textarea>
+            </label>
+
+            <div class="ai-row">
+              <button type="button" id="generateCopyButton" class="button primary">
+                Generar cuerpo con IA
+              </button>
+              <span id="aiStatus" class="inline-status" aria-live="polite">
+                Escribe una descripcion aproximada y genera el cuerpo del mail.
+              </span>
+            </div>
+
+            <label>
+              Cuerpo del email generado
+              <textarea name="eventDescription" rows="7" maxlength="1800" placeholder="Aqui aparecera el cuerpo generado por IA. Puedes editarlo antes de previsualizar. Usa lineas en blanco para separar parrafos y **texto** para negritas."></textarea>
+            </label>
+          </details>
+
+          <details class="panel collapsible-panel">
+            <summary class="panel-head collapsible-summary">
+              <h2>Envio en Pardot</h2>
+            </summary>
+
+            <div class="field-grid two">
+              <label>
+                Nombre del list email
+                <input name="listEmailName" placeholder="[Evento] 2026-06-20 - AI Breakfast">
+              </label>
+              <label>
+                Asunto
+                <input name="subject" placeholder="Invitacion: AI Breakfast Madrid">
+              </label>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Remitente
+                <input name="senderName" placeholder="Marketing Team">
+              </label>
+              <label>
+                Email remitente
+                <input name="senderEmail" type="email" placeholder="marketing@example.com">
+              </label>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Reply-to
+                <input name="replyToEmail" type="email" placeholder="events@example.com">
+              </label>
+            </div>
+          </details>
+
+          <div class="actions form-actions">
+            <button type="button" id="sampleButton" class="button ghost">Cargar ejemplo</button>
+            <button type="submit" class="button secondary" data-action="preview">Previsualizar</button>
+            <button type="submit" class="button primary" data-action="create">Crear email template</button>
+          </div>
+        </div>
+
+        <aside class="preview-panel">
+          <div class="preview-head">
+            <div>
+              <p class="eyebrow">Previsualizacion</p>
+              <h2 id="previewTitle">Email</h2>
+            </div>
+            <div class="tabs" role="tablist" aria-label="Vista de previsualizacion">
+              <button type="button" class="tab active" data-tab="email">Email</button>
+              <button type="button" class="tab" data-tab="payload">Payload</button>
+            </div>
+          </div>
+
+          <div id="resultBox" class="result" aria-live="polite"></div>
+
+          <section id="emailTab" class="tab-panel active">
+            <iframe id="htmlPreview" title="Previsualizacion HTML del email"></iframe>
+          </section>
+
+          <section id="payloadTab" class="tab-panel">
+            <pre id="payloadPreview">{}</pre>
+          </section>
+        </aside>
+      </form>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

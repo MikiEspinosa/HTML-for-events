@@ -1,0 +1,344 @@
+<!-- IESE_TEMPLATE_VARIANT: membership -->
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{eventName}}</title>
+  </head>
+  <body style="margin:0;background:#efefef;color:#000000;font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      {{preheader}}
+    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efefef;padding:0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border-collapse:collapse;">
+            <tr>
+              <td style="background:#ffffff;color:#000000;">
+                {{#heroImageUrl}}
+                {{heroOverlayHtml}}
+                {{/heroImageUrl}}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:26px 24px 24px;">
+                      {{#showEventType}}
+                      <p style="margin:0 0 9px;color:#e30613;font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">
+                        {{eventType}}
+                      </p>
+                      {{/showEventType}}
+                      <h1 style="margin:0;color:#000000;font-size:34px;line-height:1.05;font-weight:800;">
+                        {{heroTitle}}
+                      </h1>
+                      {{#showEventName}}
+                      <p style="margin:12px 0 0;color:#ffffff;font-size:18px;line-height:1.35;font-weight:700;">
+                        <span style="background:#e30613;color:#ffffff;padding:2px 6px;">{{eventName}}</span>
+                      </p>
+                      {{/showEventName}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:18px 24px 8px;background:#ffffff;">
+                <a href="{{registrationUrl}}" style="display:inline-block;background:#e30613;color:#ffffff;text-decoration:none;font-weight:800;font-size:12px;letter-spacing:0.02em;padding:11px 28px;border-radius:4px;">
+                  {{ctaLabel}} &rarr;
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 24px 22px;background:#ffffff;">
+                {{#showEmailHeadline}}
+                <h2 style="margin:0;color:#000000;font-size:22px;line-height:1.15;font-weight:800;">
+                  {{emailHeadline}}
+                </h2>
+                {{/showEmailHeadline}}
+                {{#showEventName}}
+                <h3 style="margin:8px 0 18px;color:#000000;font-size:15px;line-height:1.25;font-weight:800;">
+                  {{eventName}}
+                </h3>
+                {{/showEventName}}
+                {{eventDescriptionHtml}}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 24px;background:#ffffff;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f6f8;">
+                  {{#showEventType}}
+                  <tr>
+                    <td style="padding:8px 20px;background:#e30613;color:#ffffff;font-size:22px;line-height:1.15;font-weight:800;">
+                      {{eventType}}
+                    </td>
+                  </tr>
+                  {{/showEventType}}
+                  {{#showLocationLine}}
+                  <tr>
+                    <td style="padding:8px 20px;background:#000000;color:#ffffff;font-size:22px;line-height:1.15;font-weight:800;">
+                      {{locationLine}}
+                    </td>
+                  </tr>
+                  {{/showLocationLine}}
+                  <tr>
+                    <td style="padding:26px 20px 24px;background:#f3f6f8;color:#000000;">
+                      <p style="margin:0 0 3px;color:#000000;font-size:20px;line-height:1.2;font-weight:800;">
+                        {{eventDateHuman}}
+                      </p>
+                      <p style="margin:0;color:#000000;font-size:17px;line-height:1.25;font-weight:400;">
+                        {{eventTimeRange}}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            {{#speakerRowsHtml}}
+            <tr>
+              <td style="padding:0 24px 22px;background:#ffffff;">
+                <p style="margin:0 0 5px;color:#000000;font-size:12px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;">
+                  {{speakersLabel}}
+                </p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  {{speakerRowsHtml}}
+                </table>
+              </td>
+            </tr>
+            {{/speakerRowsHtml}}
+            {{#agendaRowsHtml}}
+            <tr>
+              <td style="padding:0 24px 26px;background:#ffffff;">
+                <h2 style="margin:0 0 12px;color:#e30613;font-size:22px;line-height:1.1;font-weight:800;">
+                  {{agendaLabel}}
+                </h2>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  {{agendaRowsHtml}}
+                </table>
+              </td>
+            </tr>
+            {{/agendaRowsHtml}}
+            {{#showLocationBlock}}
+            <tr>
+              <td style="padding:0 24px 22px;background:#ffffff;">
+                <h2 style="margin:0 0 4px;color:#e30613;font-size:24px;line-height:1.1;font-weight:800;">
+                  {{cityHeading}}
+                </h2>
+                <p style="margin:0;color:#000000;font-size:12px;line-height:1.45;">
+                  {{locationBlockLinesHtml}}
+                </p>
+              </td>
+            </tr>
+            {{/showLocationBlock}}
+            {{#showResources}}
+            <tr>
+              <td style="padding:4px 16px 28px;background:#ffffff;">
+                {{resourcesHtml}}
+              </td>
+            </tr>
+            {{/showResources}}
+            <tr>
+              <td align="center" style="padding:16px 24px;background:#e30613;">
+                <a href="{{registrationUrl}}" style="display:inline-block;background:#ffffff;color:#e30613;text-decoration:none;font-weight:800;font-size:12px;letter-spacing:0.02em;padding:11px 28px;border-radius:4px;">
+                  {{ctaLabel}} &rarr;
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0;background:#000000;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#000000;background-color:#000000;width:100%;">
+                  <tbody>
+                    <tr>
+                      <td style="direction:ltr;font-size:0px;padding:0;padding-left:20px;padding-right:20px;text-align:center;">
+                        <div style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+                                  <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0;line-height:0;text-align:left;display:inline-block;width:100%;direction:ltr;">
+                                    <div class="mj-column-per-10 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:10%;">
+                                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                        <tbody>
+                                          <tr>
+                                            <td style="vertical-align:top;padding:0;">&nbsp;</td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                    <div class="mj-column-per-80 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:80%;">
+                                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                        <tbody>
+                                          <tr>
+                                            <td style="vertical-align:top;padding:0;">
+                                              <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                                <tbody>
+                                                  <tr>
+                                                    <td style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="height:32px;line-height:32px;">&nbsp;</div>
+                                                    </td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="height:10px;line-height:10px;">&nbsp;</div>
+                                                    </td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td align="left" class="red-line" style="font-size:0px;padding:0;word-break:break-word;">&nbsp;</td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td align="center" class="title-small" style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="font-family:Graphik,Helvetica,Arial,sans-serif;font-size:30px!important;font-weight:600;line-height:25px;text-align:center;color:white;">{{personalizeTitle}}</div>
+                                                    </td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="height:10px;line-height:10px;">&nbsp;</div>
+                                                    </td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td align="center" class="paragraph" style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="font-family:Graphik,Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;text-align:center;color:#FFFFFF;">{{personalizeText}}</div>
+                                                    </td>
+                                                  </tr>
+                                                  <tr>
+                                                    <td style="font-size:0px;padding:0;word-break:break-word;">
+                                                      <div style="height:32px;line-height:32px;">&nbsp;</div>
+                                                    </td>
+                                                  </tr>
+                                                </tbody>
+                                              </table>
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                    <div class="mj-column-per-10 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:10%;">
+                                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                        <tbody>
+                                          <tr>
+                                            <td style="vertical-align:top;padding:0;">&nbsp;</td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+                                  <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                      <tbody>
+                                        <tr>
+                                          <td style="vertical-align:top;padding:0;">
+                                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                              <tbody>
+                                                <tr>
+                                                  <td align="center" style="font-size:0px;padding:0;word-break:break-word;" vertical-align="middle">
+                                                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
+                                                      <tbody>
+                                                        <tr>
+                                                          <td>{{preferencesDynamicContent}}</td>
+                                                        </tr>
+                                                      </tbody>
+                                                    </table>
+                                                  </td>
+                                                </tr>
+                                              </tbody>
+                                            </table>
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style="background:#E6E6E6;background-color:#E6E6E6;margin:0px auto;max-width:560px;">&nbsp;</div>
+                        <div style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+                                  <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                      <tbody>
+                                        <tr>
+                                          <td style="vertical-align:top;padding:0;">
+                                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                                              <tbody>
+                                                <tr>
+                                                  <td style="font-size:0px;padding:0;word-break:break-word;">
+                                                    <div style="height:35px;line-height:35px;">&nbsp;</div>
+                                                  </td>
+                                                </tr>
+                                              </tbody>
+                                            </table>
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0;background:#ffffff;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;background-color:#ffffff;width:100%;">
+                  <tbody>
+                    <tr>
+                      <td style="direction:ltr;font-size:0px;padding:0;text-align:center;">
+                        <div style="background:#ff0000;background-color:#ff0000;margin:0px auto;max-width:600px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ff0000;background-color:#ff0000;width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:18px 20px 16px;text-align:center;">
+                                  <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;">
+                                    <tbody>
+                                      <tr>
+                                        <td align="left" width="32%" style="width:32%;padding:0;vertical-align:middle;">
+                                          <img src="https://prdt.iese.edu/l/501101/2022-07-19/4db9sc/501101/1658218287R6lnsP09/iese_logo.png" width="110" alt="IESE" style="display:block;width:110px;max-width:100%;height:auto;border:0;" />
+                                        </td>
+                                        <td align="right" width="68%" style="width:68%;padding:0;vertical-align:middle;">
+                                          <img src="https://storage.pardot.com/501101/1683275488vOmfZMUf/footer_taglines_2.png" width="350" height="40" alt="A Way to Learn. A Mark to Make. A World to Change." style="display:block;width:350px;max-width:100%;height:auto;border:0;margin-left:auto;" />
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0;background:#E6E6E6;">
+                {{legalModuleHtml}}
+              </td>
+            </tr>
+          </table>
+          <div style="font-size:1px;line-height:1px;color:#ffffff;height:1px;overflow:hidden;"> {{EmailPreferenceCenter}} </div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

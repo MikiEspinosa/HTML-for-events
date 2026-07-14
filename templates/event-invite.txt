@@ -1,0 +1,60 @@
+IESE Business School
+{{#showEventType}}
+{{eventType}}
+{{/showEventType}}
+{{#showEventName}}
+{{eventName}}
+{{/showEventName}}
+
+{{#showEmailHeadline}}
+{{emailHeadline}}
+{{/showEmailHeadline}}
+
+{{eventDescription}}
+
+{{dateLabel}}: {{eventDateHuman}}
+{{timeLabel}}: {{eventTimeRange}}
+{{#showLocationLine}}
+{{locationLabel}}: {{locationLine}}
+{{/showLocationLine}}
+{{#speakerRowsText}}
+{{speakersLabel}}:
+{{speakerRowsText}}
+{{/speakerRowsText}}
+{{#agendaRowsText}}
+
+{{agendaLabel}}:
+{{agendaRowsText}}
+{{/agendaRowsText}}
+{{#otherEventsRowsText}}
+
+{{otherEventsTitle}}:
+{{otherEventsRowsText}}
+{{/otherEventsRowsText}}
+{{#showResources}}
+
+{{resourcesLabel}}:
+{{resourcesText}}
+{{/showResources}}
+
+{{ctaLabel}}:
+{{registrationUrl}}
+{{#agendaUrl}}
+
+{{agendaFullLabel}}:
+{{agendaUrl}}
+{{/agendaUrl}}
+
+{{closingTitle}}
+{{closingText}}
+
+{{personalizeTitle}}
+{{personalizeText}}
+{{preferencesDynamicContent}}
+
+{{salutation}}
+{{hostName}}
+
+{{legalText}}
+
+ {{EmailPreferenceCenter}} 
