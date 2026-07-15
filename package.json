@@ -11,6 +11,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.0",
     "openai": "^6.44.0"
   }
 }

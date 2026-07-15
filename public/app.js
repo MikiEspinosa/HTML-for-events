@@ -373,8 +373,8 @@ generateCopyButton.addEventListener("click", async () => {
     form.elements.eventDescription.value = generated.body;
     setAiStatus(
       generated.source === "openai"
-        ? `Cuerpo generado con IA (${generated.model}).`
-        : "Cuerpo generado en modo demo local. Configura OPENAI_API_KEY para IA real.",
+        ? "Cuerpo generado con IA."
+        : "Cuerpo generado en modo demo local.",
       generated.source === "openai" ? "success" : "neutral",
     );
     await updatePreview({ quiet: false });

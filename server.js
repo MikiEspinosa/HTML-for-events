@@ -4,6 +4,7 @@ import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
 import OpenAI from "openai";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -943,23 +944,20 @@ function extractOpenAiText(payload) {
 async function generateEmailBodyWithAi(input) {
   const context = buildGenerationContext(input);
   const copy = emailCopy(context.emailLanguage);
-  const apiKey = process.env.OPENAI_API_KEY;
+  const ai = createAiClient();
 
-  if (!apiKey) {
+  if (!ai) {
     return {
       body: generateLocalEmailBody(input),
       source: "local",
-      model: null,
     };
   }
 
-  const model = process.env.OPENAI_MODEL || "gpt-5.4-mini";
-  const client = new OpenAI({ apiKey });
   let payload;
 
   try {
-    payload = await client.responses.create({
-      model,
+    payload = await ai.client.responses.create({
+      model: ai.model,
       reasoning: { effort: "low" },
       instructions: copy.aiRole,
       input: [
@@ -979,7 +977,6 @@ async function generateEmailBodyWithAi(input) {
       "OpenAI no pudo generar el cuerpo del email.",
       error.status || error.code || 502,
       {
-        message: error.message,
         status: error.status,
         code: error.code,
         type: error.type,
@@ -995,7 +992,59 @@ async function generateEmailBodyWithAi(input) {
   return {
     body,
     source: "openai",
-    model,
+  };
+}
+
+function azureOpenAiBaseUrl(endpoint) {
+  return `${endpoint.trim().replace(/\/+$/, "")}/openai/v1`;
+}
+
+export function resolveAiConfiguration(env = process.env) {
+  const azureEndpoint = env.AZURE_OPENAI_ENDPOINT?.trim();
+  const azureDeployment = env.AZURE_OPENAI_DEPLOYMENT?.trim();
+
+  if (azureEndpoint && azureDeployment) {
+    return {
+      provider: "azure",
+      authentication: env.AZURE_OPENAI_API_KEY ? "api-key" : "managed-identity",
+      baseURL: azureOpenAiBaseUrl(azureEndpoint),
+      model: azureDeployment,
+    };
+  }
+
+  if (env.OPENAI_API_KEY) {
+    return {
+      provider: "openai",
+      authentication: "api-key",
+      model: env.OPENAI_MODEL || "gpt-5.4-mini",
+    };
+  }
+
+  return null;
+}
+
+function createAiClient(env = process.env) {
+  const config = resolveAiConfiguration(env);
+  if (!config) return null;
+
+  if (config.provider === "azure") {
+    const apiKey =
+      config.authentication === "api-key"
+        ? env.AZURE_OPENAI_API_KEY
+        : getBearerTokenProvider(
+            new DefaultAzureCredential(),
+            "https://ai.azure.com/.default",
+          );
+
+    return {
+      client: new OpenAI({ apiKey, baseURL: config.baseURL }),
+      model: config.model,
+    };
+  }
+
+  return {
+    client: new OpenAI({ apiKey: env.OPENAI_API_KEY }),
+    model: config.model,
   };
 }
 
@@ -1158,8 +1207,6 @@ function publicConfig() {
       hasBusinessUnitId: Boolean(process.env.PARDOT_BUSINESS_UNIT_ID),
       hasDefaultCampaign: Boolean(defaults.campaignId),
       hasDefaultRecipientLists: Boolean(defaults.recipientListIds),
-      hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY),
-      openAiModel: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       hasStaticAccessToken: Boolean(process.env.PARDOT_ACCESS_TOKEN),
       hasRefreshTokenFlow: Boolean(
         process.env.SALESFORCE_CLIENT_ID &&

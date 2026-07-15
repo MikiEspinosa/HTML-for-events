@@ -12,8 +12,8 @@ COPY templates ./templates
 COPY server.js ./
 
 ENV NODE_ENV=production
-ENV PORT=4173
+ENV PORT=80
 
-EXPOSE 4173
+EXPOSE 80
 
 CMD ["node", "server.js"]

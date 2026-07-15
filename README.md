@@ -51,16 +51,17 @@ El cuerpo generado conserva formato:
 - Un salto de linea simple se mantiene dentro del parrafo.
 - `**texto**` se convierte en negrita en el HTML del email.
 
-Para IA real, configura:
+Azure OpenAI tiene prioridad cuando se configuran endpoint y deployment. Con API key:
 
 ```powershell
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-5.4-mini
+AZURE_OPENAI_ENDPOINT=https://TU-RECURSO.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=TU-DEPLOYMENT
+AZURE_OPENAI_API_KEY=
 ```
 
-Si `OPENAI_API_KEY` no existe, el endpoint usa un generador local de demo para que la previsualizacion siga funcionando. La clave de OpenAI se lee solo en `server.js` y no se expone al navegador.
+Si `AZURE_OPENAI_API_KEY` queda vacia, la app usa `DefaultAzureCredential`, Managed Identity y el scope `https://ai.azure.com/.default`. Para desarrollo local, si Azure no esta configurado, puede utilizarse `OPENAI_API_KEY` con la API publica. Si no existe ninguna configuracion, el endpoint usa el generador local de demo.
 
-La implementacion usa la Responses API de OpenAI para generacion de texto. La guia oficial muestra el uso de `model`, `instructions`, `input` y lectura de `response.output_text`: https://developers.openai.com/api/docs/guides/text
+Las credenciales, tokens, endpoints y nombres de deployment se mantienen exclusivamente en el servidor y no se envian al navegador ni se escriben en logs.
 
 ## Plantilla
 
