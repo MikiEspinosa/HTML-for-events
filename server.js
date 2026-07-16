@@ -956,21 +956,9 @@ async function generateEmailBodyWithAi(input) {
   let payload;
 
   try {
-    payload = await ai.client.responses.create({
-      model: ai.model,
-      instructions: copy.aiRole,
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: buildGenerationPrompt(context),
-            },
-          ],
-        },
-      ],
-    });
+    payload = await ai.client.responses.create(
+      buildAiResponseRequest(ai, copy.aiRole, buildGenerationPrompt(context)),
+    );
   } catch (error) {
     throw new AppError(
       "OpenAI no pudo generar el cuerpo del email.",
@@ -979,6 +967,7 @@ async function generateEmailBodyWithAi(input) {
         status: error.status,
         code: error.code,
         type: error.type,
+        parameter: error.param,
       },
     );
   }
@@ -991,6 +980,21 @@ async function generateEmailBodyWithAi(input) {
   return {
     body,
     source: "openai",
+  };
+}
+
+export function buildAiResponseRequest(ai, instructions, prompt) {
+  if (ai.provider === "azure") {
+    return {
+      model: ai.model,
+      input: `${instructions}\n\n${prompt}`,
+    };
+  }
+
+  return {
+    model: ai.model,
+    instructions,
+    input: prompt,
   };
 }
 
@@ -1038,12 +1042,14 @@ function createAiClient(env = process.env) {
     return {
       client: new OpenAI({ apiKey, baseURL: config.baseURL }),
       model: config.model,
+      provider: config.provider,
     };
   }
 
   return {
     client: new OpenAI({ apiKey: env.OPENAI_API_KEY }),
     model: config.model,
+    provider: config.provider,
   };
 }
 

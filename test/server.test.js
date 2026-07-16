@@ -4,12 +4,27 @@ import {
   buildPardotHtmlUrl,
   buildPardotTemplateUrl,
   buildEmailTemplatePayload,
+  buildAiResponseRequest,
   buildListEmailPayload,
   escapeHtml,
   parseCsvIds,
   renderTemplate,
   resolveAiConfiguration,
 } from "../server.js";
+
+test("buildAiResponseRequest uses Azure's minimal Responses payload", () => {
+  assert.deepEqual(
+    buildAiResponseRequest(
+      { provider: "azure", model: "gpt-5.2-chat" },
+      "Redacta una invitacion.",
+      "Evento en Barcelona.",
+    ),
+    {
+      model: "gpt-5.2-chat",
+      input: "Redacta una invitacion.\n\nEvento en Barcelona.",
+    },
+  );
+});
 
 test("resolveAiConfiguration prioritizes Azure OpenAI with an API key", () => {
   assert.deepEqual(
