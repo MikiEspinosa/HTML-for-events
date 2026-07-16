@@ -958,7 +958,6 @@ async function generateEmailBodyWithAi(input) {
   try {
     payload = await ai.client.responses.create({
       model: ai.model,
-      reasoning: { effort: "low" },
       instructions: copy.aiRole,
       input: [
         {
