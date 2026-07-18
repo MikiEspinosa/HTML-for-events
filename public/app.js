@@ -11,6 +11,9 @@ const aiStatus = document.querySelector("#aiStatus");
 const speakerCount = document.querySelector("#speakerCount");
 const otherEventsCount = document.querySelector("#otherEventsCount");
 const emailLanguage = document.querySelector("#emailLanguage");
+const landingUrl = document.querySelector("#landingUrl");
+const importLandingButton = document.querySelector("#importLandingButton");
+const landingImportStatus = document.querySelector("#landingImportStatus");
 const buttons = [...document.querySelectorAll("button")];
 
 let previewTimer;
@@ -18,7 +21,8 @@ let config = null;
 
 const defaultHeroImageUrl =
   "https://prdt.iese.edu/l/501101/2026-06-03/5s7bkf/501101/1780498447BcWEOZY0/1_coaching.png";
-const defaultFullWidthImageUrl = "http://localhost:4173/full-width-example.png";
+const defaultFullWidthImageUrl =
+  "https://prdt.iese.edu/l/501101/2026-07-17/5sb92f/501101/1784336531UBju9cOe/full_width_example__1_.png";
 
 const sample = {
   eventName: "AI Breakfast Madrid",
@@ -34,6 +38,7 @@ const sample = {
     "Desayuno ejecutivo para equipos de marketing y ventas. Queremos invitar a alumni y directivos a una sesion practica sobre como preparar datos, automatizaciones y reporting antes de lanzar nuevos casos de uso con IA. Tono cercano, profesional e IESE.",
   eventDescription: "",
   heroImageUrl: defaultHeroImageUrl,
+  heroImageFocus: "50",
   heroTitleText: "Navegando la explosion de la",
   showHeroTitle: true,
   heroSubtitleText: "Inteligencia Artificial",
@@ -54,12 +59,14 @@ const sample = {
   speakerName1: "Laura Martinez",
   speakerTitle1: "Directora de Marketing",
   speakerPhotoUrl1: "",
+  speakerPhotoFocus1: "50",
   showSpeakerDescription1: true,
   speakerDescription1:
     "Especialista en marketing B2B y adopción de inteligencia artificial en equipos comerciales.",
   speakerName2: "Javier Gomez",
   speakerTitle2: "Profesor de Direccion Comercial",
   speakerPhotoUrl2: "",
+  speakerPhotoFocus2: "50",
   showSpeakerDescription2: true,
   speakerDescription2:
     "Ha acompañado a equipos directivos en procesos de transformación comercial y crecimiento.",
@@ -159,6 +166,11 @@ function setAiStatus(message, type = "neutral") {
   aiStatus.className = `inline-status ${type}`;
 }
 
+function setLandingImportStatus(message, type = "neutral") {
+  landingImportStatus.textContent = message;
+  landingImportStatus.className = `inline-status ${type}`;
+}
+
 function setLoading(loading) {
   buttons.forEach((button) => {
     button.disabled = loading;
@@ -194,9 +206,12 @@ function updateSpeakerPhotoPreview(index) {
   if (url) {
     preview.classList.add("has-image");
     preview.style.backgroundImage = `url("${url.replaceAll('"', "%22")}")`;
+    const horizontalFocus = form.elements[`speakerPhotoFocus${index}`]?.value || "50";
+    preview.style.backgroundPosition = `${horizontalFocus}% center`;
   } else {
     preview.classList.remove("has-image");
     preview.style.backgroundImage = "";
+    preview.style.backgroundPosition = "50% center";
   }
 }
 
@@ -343,6 +358,36 @@ sampleButton.addEventListener("click", () => {
   updateOtherEventFields();
   updateAllSpeakerPhotoPreviews();
   updatePreview({ quiet: false });
+});
+
+importLandingButton.addEventListener("click", async () => {
+  const url = landingUrl.value.trim();
+  if (!url) {
+    setLandingImportStatus("Introduce la URL de una landing de apply.iese.edu.", "error");
+    landingUrl.focus();
+    return;
+  }
+
+  clearResult();
+  setLoading(true);
+  setLandingImportStatus("Analizando la landing...", "neutral");
+  try {
+    const imported = await fetchJson("/api/import-event-url", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
+    applyValues(imported.fields || {});
+    updateSpeakerFields();
+    updateOtherEventFields();
+    updateAllSpeakerPhotoPreviews();
+    await updatePreview({ quiet: true });
+    const count = imported.importedFields?.length || Object.keys(imported.fields || {}).length;
+    setLandingImportStatus(`${count} campos importados. Revisa los datos antes de generar el email.`, "success");
+  } catch (error) {
+    setLandingImportStatus(error.message, "error");
+  } finally {
+    setLoading(false);
+  }
 });
 
 emailLanguage.addEventListener("change", () => {

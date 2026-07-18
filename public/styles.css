@@ -215,6 +215,30 @@ h2 {
   gap: 14px;
 }
 
+.landing-import {
+  margin: 14px 18px 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--rose);
+  background: #f8f9fa;
+}
+
+.landing-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.landing-import-row .button {
+  min-width: 104px;
+}
+
+.landing-import .inline-status {
+  min-height: 18px;
+  margin: 8px 0 0;
+}
+
 .field-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -332,6 +356,19 @@ textarea::placeholder {
   color: #9aa6b2;
 }
 
+input[type="range"] {
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--focus);
+  cursor: ew-resize;
+}
+
+input[type="range"]:focus {
+  box-shadow: none;
+}
+
 .panel > label,
 .panel > .field-grid {
   margin-top: 14px;
@@ -362,6 +399,67 @@ textarea::placeholder {
 
 .module-divider span {
   white-space: nowrap;
+}
+
+.module-accordion {
+  margin: 10px 18px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.module-accordion > summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.module-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.module-accordion > summary::after {
+  content: "+";
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--rose);
+  background: #ffffff;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.module-accordion[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: #f8f9fa;
+}
+
+.module-accordion[open] > summary::after {
+  content: "-";
+}
+
+.module-accordion-content {
+  padding: 2px 14px 16px;
+}
+
+.module-accordion-content > label,
+.module-accordion-content > .field-grid,
+.module-accordion-content > .field-control,
+.module-accordion-content > .speaker-editor {
+  margin-top: 14px;
 }
 
 .check-field {
@@ -473,7 +571,6 @@ textarea::placeholder {
 }
 
 .speaker-photo-preview.has-image {
-  background-position: center;
   background-size: cover;
   color: transparent;
 }
@@ -691,6 +788,10 @@ textarea::placeholder {
 
   .field-grid.two,
   .field-grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-import-row {
     grid-template-columns: 1fr;
   }
 

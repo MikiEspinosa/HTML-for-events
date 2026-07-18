@@ -5,6 +5,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
+import * as cheerio from "cheerio";
 import OpenAI from "openai";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -91,6 +92,147 @@ function firstNonEmpty(...values) {
     if (cleaned) return cleaned;
   }
   return "";
+}
+
+function compactText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function textWithBreaks($, element) {
+  const clone = $(element).clone();
+  clone.find("br").replaceWith("\n");
+  return clone.text().replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+}
+
+function parseClock(value) {
+  const match = compactText(value).match(/(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/i);
+  if (!match) return "";
+  let hour = Number(match[1]);
+  const minute = match[2] || "00";
+  const meridiem = (match[3] || "").toLowerCase();
+  if (meridiem.startsWith("p") && hour < 12) hour += 12;
+  if (meridiem.startsWith("a") && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+export function validateIeseLandingUrl(value) {
+  let url;
+  try {
+    url = new URL(cleanString(value));
+  } catch {
+    throw new AppError("La URL de la landing no es valida.");
+  }
+  if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "apply.iese.edu") {
+    throw new AppError("Solo se pueden importar landings HTTPS de apply.iese.edu.");
+  }
+  return url;
+}
+
+export function parseIeseLandingHtml(html, sourceUrl) {
+  const $ = cheerio.load(html);
+  const fields = {};
+  const set = (name, value) => {
+    const cleaned = typeof value === "string" ? value.trim() : value;
+    if (cleaned !== "" && cleaned !== undefined && cleaned !== null) fields[name] = cleaned;
+  };
+
+  const eventName = compactText($("#event_header_name_name").first().text()) ||
+    compactText($("meta[property='og:title']").attr("content")?.split("|")[0]);
+  const eventType = compactText($("#event_header_name_type").first().text());
+  const city = compactText($("#event_header_name_place").first().text());
+  const language = compactText($("meta[name='language']").attr("content")).toLowerCase();
+  const heroStyle = $("#event-header-container").attr("style") || "";
+  const heroImage = heroStyle.match(/background-image\s*:\s*url\((['\"]?)(.*?)\1\)/i)?.[2] ||
+    $("meta[property='og:image']").attr("content");
+
+  const infoSections = $(".iese_event_info_section_subsection").toArray();
+  const sectionText = (label) => {
+    const section = infoSections.find((item) =>
+      compactText($(item).find(".iese_event_info_section_subtitle").text()).toLowerCase().includes(label),
+    );
+    if (!section) return "";
+    const clone = $(section).clone();
+    clone.find(".iese_event_info_section_subtitle").remove();
+    return textWithBreaks($, clone);
+  };
+  const dateTimeText = sectionText("date and time") || sectionText("fecha y hora");
+  const location = compactText(sectionText("location") || sectionText("ubicaci"));
+  const timeMatches = [...dateTimeText.matchAll(/\d{1,2}:\d{2}\s*(?:a\.?m\.?|p\.?m\.?)?/gi)];
+  const scriptText = $("script").map((_, item) => $(item).html() || "").get().join("\n");
+  const eventDate = scriptText.match(/calendar_date\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/)?.[1] ||
+    scriptText.match(/["']date["']\s*:\s*["'](\d{4}-\d{2}-\d{2})["']/)?.[1];
+
+  const contentRoot = $(".event_templateblock_form_full").filter((_, item) => $(item).find("#payment_form").length > 0).last();
+  const contentBlock = contentRoot.find("#payment_form").first().prevAll("div").first();
+  const paragraphs = contentBlock.find("p").toArray();
+  let agendaIndex = paragraphs.findIndex((item) => /^agenda:?$/i.test(compactText($(item).text())));
+  if (agendaIndex < 0) agendaIndex = paragraphs.findIndex((item) => /agenda/i.test(compactText($(item).text())));
+  const descriptionParts = paragraphs
+    .slice(0, agendaIndex >= 0 ? agendaIndex : undefined)
+    .map((item) => textWithBreaks($, item))
+    .filter(Boolean);
+  const agendaText = agendaIndex >= 0 && paragraphs[agendaIndex + 1]
+    ? textWithBreaks($, paragraphs[agendaIndex + 1])
+    : "";
+  const agendaItems = agendaText.split(/\n+/).map((line) => {
+    const match = line.match(/^\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s+(.+)$/i);
+    return match ? `${parseClock(match[1])} | ${compactText(match[2])}` : compactText(line);
+  }).filter(Boolean).join("\n");
+
+  set("eventName", eventName);
+  set("emailHeadline", eventName);
+  set("heroTitleText", eventName);
+  set("eventType", eventType);
+  set("heroSubtitleText", eventType);
+  set("city", city);
+  const timezoneByCity = { london: "Europe/London", madrid: "Europe/Madrid", barcelona: "Europe/Madrid" };
+  set("timezone", timezoneByCity[city.toLowerCase()]);
+  set("heroImageUrl", heroImage);
+  set("emailLanguage", language.startsWith("es") ? "es" : language ? "en" : "");
+  set("eventDate", eventDate);
+  set("startTime", timeMatches[0] ? parseClock(timeMatches[0][0]) : "");
+  set("endTime", timeMatches[1] ? parseClock(timeMatches[1][0]) : "");
+  set("venue", location);
+  set("registrationUrl", sourceUrl);
+  set("eventBrief", descriptionParts.join("\n\n"));
+  set("agendaItems", agendaItems);
+  set("ctaLabel", language.startsWith("es") ? "REGISTRARSE" : "REGISTER");
+  if (eventType) {
+    const speaker = eventType.match(/(?:guest speaker|ponente)\s*:\s*(.+)/i)?.[1];
+    if (speaker) {
+      set("speakerCount", "1");
+      set("speakerName1", speaker);
+      set("speakerTitle1", language.startsWith("es") ? "Ponente" : "Guest speaker");
+    }
+  }
+  for (const [field, toggle] of [["eventName", "showEventName"], ["eventType", "showEventType"], ["emailHeadline", "showEmailHeadline"], ["city", "showCity"], ["venue", "showVenue"], ["timezone", "showTimezone"], ["agendaItems", "showAgenda"]]) {
+    if (fields[field]) fields[toggle] = true;
+  }
+  return { fields, importedFields: Object.keys(fields), sourceUrl };
+}
+
+async function importIeseLanding(value) {
+  let url = validateIeseLandingUrl(value);
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    const response = await fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(12000),
+      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "AURA-HTML-Generator/1.0" },
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location || redirects === 3) throw new AppError("La landing tiene demasiadas redirecciones.", 502);
+      url = validateIeseLandingUrl(new URL(location, url).toString());
+      continue;
+    }
+    if (!response.ok) throw new AppError(`No se pudo descargar la landing (HTTP ${response.status}).`, 502);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/html")) throw new AppError("La URL no devuelve una pagina HTML.");
+    const html = await response.text();
+    if (Buffer.byteLength(html, "utf8") > 5 * 1024 * 1024) throw new AppError("La landing es demasiado grande.");
+    return parseIeseLandingHtml(html, url.toString());
+  }
+  throw new AppError("No se pudo importar la landing.", 502);
 }
 
 function toInteger(value, label, { required = false } = {}) {
@@ -386,11 +528,12 @@ function collectSpeakers(input) {
     const name = optionalString(input[`speakerName${index}`]);
     const title = optionalString(input[`speakerTitle${index}`]);
     const photoUrl = optionalString(input[`speakerPhotoUrl${index}`]);
+    const photoFocus = normalizeImageFocus(input[`speakerPhotoFocus${index}`]);
     const description = visibleSwitch(input, `showSpeakerDescription${index}`)
       ? optionalString(input[`speakerDescription${index}`])
       : "";
     if (!name && !title && !photoUrl && !description) continue;
-    speakers.push({ name, title, photoUrl, description });
+    speakers.push({ name, title, photoUrl, photoFocus, description });
   }
 
   if (speakers.length === 0) {
@@ -400,8 +543,11 @@ function collectSpeakers(input) {
     const name = optionalString(input.speakerName);
     const title = optionalString(input.speakerTitle);
     const photoUrl = optionalString(input.speakerPhotoUrl);
+    const photoFocus = normalizeImageFocus(input.speakerPhotoFocus);
     const description = optionalString(input.speakerDescription);
-    if (name || title || photoUrl || description) speakers.push({ name, title, photoUrl, description });
+    if (name || title || photoUrl || description) {
+      speakers.push({ name, title, photoUrl, photoFocus, description });
+    }
   }
 
   return speakers;
@@ -420,7 +566,7 @@ function buildSpeakersHtml(speakers, copy) {
       const description = speaker.description ? formatEmailBodyHtml(speaker.description) : "";
       const photoPlaceholder = escapeHtml(copy.photoPlaceholder);
       const image = speaker.photoUrl
-        ? `<img src="${escapeHtml(speaker.photoUrl)}" width="200" height="200" alt="${name}" style="display:block;width:200px;height:200px;object-fit:cover;border:0;background:#f3f6f8;">`
+        ? `<img src="${escapeHtml(speaker.photoUrl)}" width="200" height="200" alt="${name}" style="display:block;width:200px;height:200px;object-fit:cover;object-position:${escapeHtml(speaker.photoFocus)};border:0;background:#f3f6f8;">`
         : `<table role="presentation" width="200" height="200" cellpadding="0" cellspacing="0" style="width:200px;height:200px;background:#f3f6f8;border:1px solid #d9d9d9;border-collapse:collapse;"><tr><td align="center" valign="middle" style="color:#777777;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">${photoPlaceholder}<br>200 x 200</td></tr></table>`;
 
       return `
@@ -597,6 +743,7 @@ function buildOtherEventsText(items) {
 
 function buildHeroOverlayHtml({
   heroImageUrl,
+  heroImageFocus,
   heroTitleText,
   heroSubtitleText,
   registrationUrl,
@@ -623,7 +770,7 @@ function buildHeroOverlayHtml({
     : "";
 
   return `
-                <table role="presentation" width="100%" height="250" cellpadding="0" cellspacing="0" background="${escapeHtml(heroImageUrl)}" style="width:100%;max-width:620px;height:250px;max-height:250px;border-collapse:collapse;background-image:url('${escapeHtml(heroImageUrl)}');background-size:cover;background-position:center;background-color:#333333;">
+                <table role="presentation" width="100%" height="250" cellpadding="0" cellspacing="0" background="${escapeHtml(heroImageUrl)}" style="width:100%;max-width:620px;height:250px;max-height:250px;border-collapse:collapse;background-image:url('${escapeHtml(heroImageUrl)}');background-size:auto 100%;background-repeat:no-repeat;background-position:${escapeHtml(heroImageFocus)};background-color:#333333;">
                   <tr>
                     <td valign="top" style="height:250px;max-height:250px;padding:28px 28px 20px;${imageShade}">
                       <div style="display:inline-block;max-width:430px;padding:10px 12px 12px;${textShade}">
@@ -638,6 +785,28 @@ function buildHeroOverlayHtml({
                     </td>
                   </tr>
                 </table>`;
+}
+
+function normalizeImageFocus(value) {
+  const raw = (optionalString(value) || "50").toLowerCase();
+  const legacyPositions = {
+    "left top": 0,
+    "left center": 0,
+    "left bottom": 0,
+    "center top": 50,
+    "center center": 50,
+    "center bottom": 50,
+    "right top": 100,
+    "right center": 100,
+    "right bottom": 100,
+  };
+  const numeric = Object.hasOwn(legacyPositions, raw)
+    ? legacyPositions[raw]
+    : Number(raw.replace("%", ""));
+  const horizontal = Number.isFinite(numeric)
+    ? Math.min(100, Math.max(0, Math.round(numeric)))
+    : 50;
+  return `${horizontal}% center`;
 }
 
 function deriveListEmailName(input) {
@@ -694,6 +863,7 @@ function buildTemplateData(input, { html = false } = {}) {
   const registrationUrl = normalizeUrl(input.registrationUrl, "la URL de registro");
   const ctaLabel = optionalString(input.ctaLabel) || copy.ctaLabel;
   const heroImageUrl = optionalString(input.heroImageUrl);
+  const heroImageFocus = normalizeImageFocus(input.heroImageFocus);
   const heroTitleText = optionalString(input.heroTitleText);
   const heroSubtitleText = optionalString(input.heroSubtitleText);
   const eventsCtaUrl = showEventsCta
@@ -723,6 +893,7 @@ function buildTemplateData(input, { html = false } = {}) {
     showHeroSubtitleHighlight: showHeroSubtitleHighlight ? "1" : "",
     showResources: resources.length > 0 ? "1" : "",
     showEventsCta: eventsCtaUrl ? "1" : "",
+    showEventsCtaSpacer: !eventsCtaUrl && fullWidthImageUrl ? "1" : "",
     showFullWidthImage: fullWidthImageUrl ? "1" : "",
     showLocationLine: visibleLocationLine ? "1" : "",
     showLocationBlock: locationPrimary ? "1" : "",
@@ -783,6 +954,7 @@ function buildTemplateData(input, { html = false } = {}) {
     heroSubtitleText,
     heroOverlayHtml: buildHeroOverlayHtml({
       heroImageUrl,
+      heroImageFocus,
       heroTitleText,
       heroSubtitleText,
       registrationUrl,
@@ -1599,6 +1771,13 @@ async function handleApi(request, response) {
     const input = await readJsonBody(request);
     const generated = await generateEmailBodyWithAi(input);
     sendJson(response, 200, generated);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/import-event-url") {
+    const input = await readJsonBody(request);
+    const imported = await importIeseLanding(requireString(input.url, "la URL de la landing"));
+    sendJson(response, 200, imported);
     return;
   }
 

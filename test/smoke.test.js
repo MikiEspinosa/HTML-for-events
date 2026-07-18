@@ -54,7 +54,8 @@ const sampleInput = {
   eventsCtaLabel: "Ver todos los eventos en la web",
   eventsCtaUrl: "https://www.iese.edu/events/",
   showFullWidthImage: "true",
-  fullWidthImageUrl: "http://localhost:4173/full-width-example.png",
+  fullWidthImageUrl:
+    "https://prdt.iese.edu/l/501101/2026-07-17/5sb92f/501101/1784336531UBju9cOe/full_width_example__1_.png",
   fullWidthImageLinkUrl: "https://example.com/full-width-link",
 };
 
@@ -103,9 +104,10 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(pageHtml, /Credenciales listas/);
   assert.doesNotMatch(pageHtml, /Modo real/);
   assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Datos del evento<\/h2>/);
-  assert.match(pageHtml, /<div class="module-divider"><span>Configuracion general<\/span><\/div>/);
-  assert.match(pageHtml, /<div class="module-divider"><span>Cabecera e imagen hero<\/span><\/div>/);
-  assert.match(pageHtml, /<div class="module-divider"><span>CTA e imagen inferior<\/span><\/div>/);
+  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Configuracion general<\/summary>/);
+  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Cabecera e imagen hero<\/summary>/);
+  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>CTA e imagen inferior<\/summary>/);
+  assert.doesNotMatch(pageHtml, /<details class="module-accordion" open>/);
   assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Contenido del email<\/h2>/);
   assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Envio en Pardot<\/h2>/);
   assert.doesNotMatch(pageHtml, /<details class="panel collapsible-panel" open>/);
@@ -250,7 +252,8 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(data.html, /{{{dynamic_content_864}}}/);
   assert.match(data.html, /Ver todos los eventos en la web/);
   assert.match(data.html, /https:\/\/www\.iese\.edu\/events\//);
-  assert.match(data.html, /http:\/\/localhost:4173\/full-width-example\.png/);
+  assert.doesNotMatch(data.html, /showEventsCtaSpacer/);
+  assert.match(data.html, /https:\/\/prdt\.iese\.edu\/l\/501101\/2026-07-17\/5sb92f\/501101\/1784336531UBju9cOe\/full_width_example__1_\.png/);
   assert.match(data.html, /<a href="https:\/\/example\.com\/full-width-link" style="display:block;text-decoration:none;border:0;">/);
   assert.match(data.html, /width="620" alt="" style="display:block;width:100%;max-width:620px/);
   assert.doesNotMatch(data.html, /<td align="center" style="padding:16px 24px;background:#e30613;">/);
@@ -405,13 +408,19 @@ test("server serves the app and renders a preview", async (t) => {
     body: JSON.stringify({
       ...sampleInput,
       heroImageUrl: "https://example.com/header.jpg",
+      heroImageFocus: "82",
       heroTitleText: "Titulo propio hero",
       heroSubtitleText: "Subtitulo propio hero",
+      speakerPhotoUrl1: "https://example.com/speaker.jpg",
+      speakerPhotoFocus1: "18",
     }),
   });
   assert.equal(heroImagePreview.status, 200);
   const heroImageData = await heroImagePreview.json();
   assert.match(heroImageData.html, /background-image:url\('https:\/\/example\.com\/header\.jpg'\)/);
+  assert.match(heroImageData.html, /background-size:auto 100%/);
+  assert.match(heroImageData.html, /background-position:82% center/);
+  assert.match(heroImageData.html, /object-position:18% center/);
   assert.match(heroImageData.html, /height="250"/);
   assert.match(heroImageData.html, /valign="top"/);
   assert.match(heroImageData.html, /background:rgba\(0,0,0,0\.34\)/);
@@ -578,4 +587,6 @@ test("server serves the app and renders a preview", async (t) => {
   const hiddenEventsCtaData = await hiddenEventsCtaPreview.json();
   assert.doesNotMatch(hiddenEventsCtaData.html, /No debe verse CTA/);
   assert.doesNotMatch(hiddenEventsCtaData.html, /https:\/\/example\.com\/no-cta/);
+  assert.match(hiddenEventsCtaData.html, /height:32px;min-height:32px;line-height:32px/);
+  assert.doesNotMatch(hiddenEventsCtaData.html, /showEventsCtaSpacer/);
 });

@@ -25,7 +25,20 @@
               <h2>Datos del evento</h2>
             </summary>
 
-            <div class="module-divider"><span>Configuracion general</span></div>
+            <div class="landing-import">
+              <label>
+                Importar landing de evento IESE
+                <div class="landing-import-row">
+                  <input id="landingUrl" type="url" autocomplete="url" placeholder="https://apply.iese.edu/...">
+                  <button id="importLandingButton" type="button" class="button secondary">Importar</button>
+                </div>
+              </label>
+              <p id="landingImportStatus" class="inline-status" aria-live="polite"></p>
+            </div>
+
+            <details class="module-accordion">
+              <summary>Configuracion general</summary>
+              <div class="module-accordion-content">
 
             <div class="field-grid two">
               <div class="field-control">
@@ -91,11 +104,20 @@
               </label>
             </div>
 
-            <div class="module-divider"><span>Cabecera e imagen hero</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Cabecera e imagen hero</summary>
+              <div class="module-accordion-content">
 
             <label>
               Imagen de cabecera
               <input name="heroImageUrl" type="url" placeholder="https://...">
+            </label>
+            <label>
+              Encuadre horizontal de la cabecera
+              <input name="heroImageFocus" type="range" min="0" max="100" step="1" value="50">
             </label>
 
             <div class="field-grid two">
@@ -138,7 +160,12 @@
               </label>
             </div>
 
-            <div class="module-divider"><span>Fecha, registro y ubicacion</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Fecha, registro y ubicacion</summary>
+              <div class="module-accordion-content">
 
             <div class="field-grid three">
               <label>
@@ -154,8 +181,6 @@
                 <input name="endTime" type="time">
               </label>
             </div>
-
-            <div class="module-divider"><span>Ponentes</span></div>
 
             <div class="field-grid two">
               <div class="field-control">
@@ -203,6 +228,13 @@
               </div>
             </div>
 
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Ponentes</summary>
+              <div class="module-accordion-content">
+
             <div class="field-grid two">
               <label>
                 Numero de ponentes
@@ -231,10 +263,16 @@
                       <input name="speakerTitle1" placeholder="VP Marketing">
                     </label>
                   </div>
-                  <label>
-                    Foto del ponente 1
-                    <input name="speakerPhotoUrl1" type="url" placeholder="https://...">
-                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      Foto del ponente 1
+                      <input name="speakerPhotoUrl1" type="url" placeholder="https://...">
+                    </label>
+                    <label>
+                      Encuadre horizontal de la foto 1
+                      <input name="speakerPhotoFocus1" type="range" min="0" max="100" step="1" value="50">
+                    </label>
+                  </div>
                   <div class="field-control">
                     <div class="field-control-head">
                       <label class="field-label" for="speakerDescription1">Descripción e historia del ponente 1</label>
@@ -263,10 +301,16 @@
                       <input name="speakerTitle2" placeholder="VP Marketing">
                     </label>
                   </div>
-                  <label>
-                    Foto del ponente 2
-                    <input name="speakerPhotoUrl2" type="url" placeholder="https://...">
-                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      Foto del ponente 2
+                      <input name="speakerPhotoUrl2" type="url" placeholder="https://...">
+                    </label>
+                    <label>
+                      Encuadre horizontal de la foto 2
+                      <input name="speakerPhotoFocus2" type="range" min="0" max="100" step="1" value="50">
+                    </label>
+                  </div>
                   <div class="field-control">
                     <div class="field-control-head">
                       <label class="field-label" for="speakerDescription2">Descripción e historia del ponente 2</label>
@@ -295,10 +339,16 @@
                       <input name="speakerTitle3" placeholder="VP Marketing">
                     </label>
                   </div>
-                  <label>
-                    Foto del ponente 3
-                    <input name="speakerPhotoUrl3" type="url" placeholder="https://...">
-                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      Foto del ponente 3
+                      <input name="speakerPhotoUrl3" type="url" placeholder="https://...">
+                    </label>
+                    <label>
+                      Encuadre horizontal de la foto 3
+                      <input name="speakerPhotoFocus3" type="range" min="0" max="100" step="1" value="50">
+                    </label>
+                  </div>
                   <div class="field-control">
                     <div class="field-control-head">
                       <label class="field-label" for="speakerDescription3">Descripción e historia del ponente 3</label>
@@ -327,10 +377,16 @@
                       <input name="speakerTitle4" placeholder="VP Marketing">
                     </label>
                   </div>
-                  <label>
-                    Foto del ponente 4
-                    <input name="speakerPhotoUrl4" type="url" placeholder="https://...">
-                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      Foto del ponente 4
+                      <input name="speakerPhotoUrl4" type="url" placeholder="https://...">
+                    </label>
+                    <label>
+                      Encuadre horizontal de la foto 4
+                      <input name="speakerPhotoFocus4" type="range" min="0" max="100" step="1" value="50">
+                    </label>
+                  </div>
                   <div class="field-control">
                     <div class="field-control-head">
                       <label class="field-label" for="speakerDescription4">Descripción e historia del ponente 4</label>
@@ -359,10 +415,16 @@
                       <input name="speakerTitle5" placeholder="VP Marketing">
                     </label>
                   </div>
-                  <label>
-                    Foto del ponente 5
-                    <input name="speakerPhotoUrl5" type="url" placeholder="https://...">
-                  </label>
+                  <div class="field-grid two">
+                    <label>
+                      Foto del ponente 5
+                      <input name="speakerPhotoUrl5" type="url" placeholder="https://...">
+                    </label>
+                    <label>
+                      Encuadre horizontal de la foto 5
+                      <input name="speakerPhotoFocus5" type="range" min="0" max="100" step="1" value="50">
+                    </label>
+                  </div>
                   <div class="field-control">
                     <div class="field-control-head">
                       <label class="field-label" for="speakerDescription5">Descripción e historia del ponente 5</label>
@@ -379,7 +441,12 @@
               </section>
             </div>
 
-            <div class="module-divider"><span>Agenda</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Agenda</summary>
+              <div class="module-accordion-content">
 
             <div class="field-control">
               <div class="field-control-head">
@@ -405,7 +472,12 @@
               </label>
             </div>
 
-            <div class="module-divider"><span>Otros eventos</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Otros eventos</summary>
+              <div class="module-accordion-content">
 
             <div class="field-control">
               <div class="field-control-head">
@@ -543,7 +615,12 @@
               </div>
             </div>
 
-            <div class="module-divider"><span>Cierre</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Cierre</summary>
+              <div class="module-accordion-content">
 
             <div class="field-grid two">
               <label>
@@ -556,7 +633,12 @@
               </label>
             </div>
 
-            <div class="module-divider"><span>Recursos extra</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>Recursos extra</summary>
+              <div class="module-accordion-content">
 
             <div class="field-control">
               <div class="field-control-head">
@@ -617,7 +699,12 @@
               </div>
             </div>
 
-            <div class="module-divider"><span>CTA e imagen inferior</span></div>
+              </div>
+            </details>
+
+            <details class="module-accordion">
+              <summary>CTA e imagen inferior</summary>
+              <div class="module-accordion-content">
 
             <div class="field-control">
               <div class="field-control-head">
@@ -650,6 +737,8 @@
                 <input name="fullWidthImageLinkUrl" id="fullWidthImageLinkUrl" type="url" placeholder="URL del enlace">
               </div>
             </div>
+              </div>
+            </details>
           </details>
 
           <details class="panel collapsible-panel">

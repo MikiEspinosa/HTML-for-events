@@ -8,9 +8,45 @@ import {
   buildListEmailPayload,
   escapeHtml,
   parseCsvIds,
+  parseIeseLandingHtml,
   renderTemplate,
   resolveAiConfiguration,
+  validateIeseLandingUrl,
 } from "../server.js";
+
+test("parseIeseLandingHtml maps a standard IESE event landing", () => {
+  const html = `<!doctype html><html><head>
+    <meta name="language" content="en"><meta property="og:image" content="https://example.com/social.jpg">
+    </head><body>
+    <div id="event-header-container" style="background-image:url('https://example.com/hero.jpg')">
+      <div id="event_header_name_name">IESE Alumni Breakfast</div>
+      <div id="event_header_name_type">Guest Speaker: Alex Smith</div>
+      <div id="event_header_name_place">London</div>
+    </div>
+    <div class="iese_event_info_section_subsection"><span class="iese_event_info_section_subtitle">DATE AND TIME</span>Tuesday<br><span>7:45 a.m. - 9:00 a.m.</span></div>
+    <div class="iese_event_info_section_subsection"><span class="iese_event_info_section_subtitle">LOCATION</span>Oriental Club, London</div>
+    <div class="event_templateblock_form_full"><div style="padding:20px">
+      <p>Join IESE alumni for a practical breakfast session.</p><p><u>Agenda</u></p>
+      <p>07:45 am Arrival<br>08:00 am Session<br>09:00 am End</p>
+    </div><form id="payment_form"></form></div>
+    <script>var calendar_date = "2026-10-13";</script></body></html>`;
+  const result = parseIeseLandingHtml(html, "https://apply.iese.edu/example/");
+  assert.equal(result.fields.eventName, "IESE Alumni Breakfast");
+  assert.equal(result.fields.heroImageUrl, "https://example.com/hero.jpg");
+  assert.equal(result.fields.eventDate, "2026-10-13");
+  assert.equal(result.fields.startTime, "07:45");
+  assert.equal(result.fields.endTime, "09:00");
+  assert.equal(result.fields.timezone, "Europe/London");
+  assert.equal(result.fields.venue, "Oriental Club, London");
+  assert.equal(result.fields.speakerName1, "Alex Smith");
+  assert.match(result.fields.agendaItems, /08:00 \| Session/);
+});
+
+test("validateIeseLandingUrl only accepts the IESE landing host over HTTPS", () => {
+  assert.equal(validateIeseLandingUrl("https://apply.iese.edu/event/").hostname, "apply.iese.edu");
+  assert.throws(() => validateIeseLandingUrl("https://example.com/event/"), /apply\.iese\.edu/);
+  assert.throws(() => validateIeseLandingUrl("http://apply.iese.edu/event/"), /HTTPS/);
+});
 
 test("buildAiResponseRequest uses Azure's minimal Responses payload", () => {
   assert.deepEqual(
