@@ -120,7 +120,7 @@ export function validateIeseLandingUrl(value) {
   try {
     url = new URL(cleanString(value));
   } catch {
-    throw new AppError("La URL de la landing no es valida.");
+    throw new AppError("La URL de la landing no es válida.");
   }
   if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "apply.iese.edu") {
     throw new AppError("Solo se pueden importar landings HTTPS de apply.iese.edu.");
@@ -136,11 +136,27 @@ export function parseIeseLandingHtml(html, sourceUrl) {
     if (cleaned !== "" && cleaned !== undefined && cleaned !== null) fields[name] = cleaned;
   };
 
-  const eventName = compactText($("#event_header_name_name").first().text()) ||
-    compactText($("meta[property='og:title']").attr("content")?.split("|")[0]);
-  const eventType = compactText($("#event_header_name_type").first().text());
-  const city = compactText($("#event_header_name_place").first().text());
-  const language = compactText($("meta[name='language']").attr("content")).toLowerCase();
+  const cleanHeading = (value) => compactText(value).replace(/\.\s*$/, "");
+  const eventName = cleanHeading(
+    $("#event_header_name_name").first().text() ||
+    $("#event_header_name_responsive_name").first().text() ||
+    $("meta[property='og:title']").attr("content")?.split("|")[0],
+  );
+  const eventType = cleanHeading(
+    $("#event_header_name_type").first().text() ||
+    $("#event_header_name_responsive_type").first().text(),
+  );
+  const city = cleanHeading(
+    $("#event_header_name_place").first().text() ||
+    $("#event_header_name_responsive_place").first().text(),
+  );
+  const scriptText = $("script").map((_, item) => $(item).html() || "").get().join("\n");
+  const language = (
+    compactText($("meta[name='language']").attr("content")) ||
+    scriptText.match(/\b(?:var|let|const)\s+lang\s*=\s*["']([a-z-]+)["']/i)?.[1] ||
+    $("html").attr("lang") ||
+    ""
+  ).toLowerCase();
   const heroStyle = $("#event-header-container").attr("style") || "";
   const heroImage = heroStyle.match(/background-image\s*:\s*url\((['\"]?)(.*?)\1\)/i)?.[2] ||
     $("meta[property='og:image']").attr("content");
@@ -158,7 +174,6 @@ export function parseIeseLandingHtml(html, sourceUrl) {
   const dateTimeText = sectionText("date and time") || sectionText("fecha y hora");
   const location = compactText(sectionText("location") || sectionText("ubicaci"));
   const timeMatches = [...dateTimeText.matchAll(/\d{1,2}:\d{2}\s*(?:a\.?m\.?|p\.?m\.?)?/gi)];
-  const scriptText = $("script").map((_, item) => $(item).html() || "").get().join("\n");
   const eventDate = scriptText.match(/calendar_date\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/)?.[1] ||
     scriptText.match(/["']date["']\s*:\s*["'](\d{4}-\d{2}-\d{2})["']/)?.[1];
 
@@ -180,7 +195,7 @@ export function parseIeseLandingHtml(html, sourceUrl) {
   }).filter(Boolean).join("\n");
 
   set("eventName", eventName);
-  set("emailHeadline", eventName);
+  set("emailHeadline", language.startsWith("es") ? "IESE te invita" : "IESE invites you");
   set("heroTitleText", eventName);
   set("eventType", eventType);
   set("heroSubtitleText", eventType);
@@ -208,7 +223,12 @@ export function parseIeseLandingHtml(html, sourceUrl) {
   for (const [field, toggle] of [["eventName", "showEventName"], ["eventType", "showEventType"], ["emailHeadline", "showEmailHeadline"], ["city", "showCity"], ["venue", "showVenue"], ["timezone", "showTimezone"], ["agendaItems", "showAgenda"]]) {
     if (fields[field]) fields[toggle] = true;
   }
-  return { fields, importedFields: Object.keys(fields), sourceUrl };
+  const loginGated = $("form[action='/oauth2/login']").length > 0 ||
+    /exclusiva para empleados|please.*login|introduce tu usuario/i.test(compactText($("#contentblock").text()));
+  const notice = loginGated
+    ? "Landing privada: se han importado los datos públicos. La fecha, hora, ubicación detallada, descripción y agenda requieren acceso autenticado y deben revisarse manualmente."
+    : "";
+  return { fields, importedFields: Object.keys(fields), sourceUrl, partial: loginGated, notice };
 }
 
 async function importIeseLanding(value) {
@@ -227,7 +247,7 @@ async function importIeseLanding(value) {
     }
     if (!response.ok) throw new AppError(`No se pudo descargar la landing (HTTP ${response.status}).`, 502);
     const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("text/html")) throw new AppError("La URL no devuelve una pagina HTML.");
+    if (!contentType.includes("text/html")) throw new AppError("La URL no devuelve una página HTML.");
     const html = await response.text();
     if (Buffer.byteLength(html, "utf8") > 5 * 1024 * 1024) throw new AppError("La landing es demasiado grande.");
     return parseIeseLandingHtml(html, url.toString());
@@ -244,7 +264,7 @@ function toInteger(value, label, { required = false } = {}) {
 
   const parsed = Number(cleaned);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new AppError(`${label} debe ser un ID numerico positivo.`);
+    throw new AppError(`${label} debe ser un ID numérico positivo.`);
   }
   return parsed;
 }
@@ -256,7 +276,7 @@ export function parseCsvIds(value, label = "IDs") {
   return cleaned.split(",").map((item) => {
     const parsed = Number(item.trim());
     if (!Number.isInteger(parsed) || parsed <= 0) {
-      throw new AppError(`${label} debe contener IDs numericos separados por coma.`);
+      throw new AppError(`${label} debe contener IDs numéricos separados por coma.`);
     }
     return parsed;
   });
@@ -331,7 +351,7 @@ function normalizeUrl(value, label) {
     }
     return url.toString();
   } catch {
-    throw new AppError(`${label} debe ser una URL http o https valida.`);
+    throw new AppError(`${label} debe ser una URL http o https válida.`);
   }
 }
 
@@ -355,7 +375,7 @@ function emailCopy(language) {
   if (lang === "en") {
     return {
       eventFallbackType: "Event",
-      headline: "Some moments are too good to miss",
+      headline: "IESE invites you",
       heroTitle: "IESE invites you",
       ctaLabel: "REGISTER",
       speakersLabel: "Speakers",
@@ -402,7 +422,7 @@ function emailCopy(language) {
 
   return {
     eventFallbackType: "Evento",
-    headline: "Some moments are too good to miss",
+    headline: "IESE te invita",
     heroTitle: "IESE te invita",
     ctaLabel: "REGISTRARSE",
     speakersLabel: "Ponentes",
@@ -411,7 +431,7 @@ function emailCopy(language) {
     resourcesLabel: "Recursos extra",
     otherEventsTitle: "Otros eventos para ti",
     eventsCtaLabel: "Ver todos los eventos en la web",
-    moreInfoLabel: "Mas informacion",
+    moreInfoLabel: "Más información",
     dateLabel: "Fecha",
     timeLabel: "Hora",
     locationLabel: "Lugar",
@@ -419,7 +439,7 @@ function emailCopy(language) {
     eventItemFallback: "Evento",
     closingTitle: "Construyendo futuro juntos",
     closingText:
-      "Nos encantara compartir una sesion con ideas practicas, networking y perspectiva IESE.",
+      "Nos encantará compartir una sesión con ideas prácticas, networking y perspectiva IESE.",
     hostName: "Equipo de marketing",
     preheaderPrefix: "Reserva tu plaza para",
     unsubscribeLabel: "Baja",
@@ -427,23 +447,23 @@ function emailCopy(language) {
     salutation: "Un saludo,",
     personalizeTitle: "Personaliza tu experiencia",
     personalizeText:
-      "Nos importa que recibas solo la informacion que es relevante para ti. Haz clic en el boton a continuacion para acceder a tu pagina de preferencias y personalizar los contenidos que quieres recibir de nosotros.",
+      "Nos importa que recibas solo la información que es relevante para ti. Haz clic en el botón a continuación para acceder a tu página de preferencias y personalizar los contenidos que quieres recibir de nosotros.",
     preferencesDynamicContent: "{{{dynamic_content_867}}}",
     legalText:
-      "Este email ha sido enviado por IESE Business School. Lo recibes porque te has registrado, has asistido o has solicitado informacion sobre actividades de IESE. Por favor, no respondas a este email automatico.",
+      "Este email ha sido enviado por IESE Business School. Lo recibes porque te has registrado, has asistido o has solicitado información sobre actividades de IESE. Por favor, no respondas a este email automático.",
     legalModuleHtml:
       '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#E6E6E6;background-color:#E6E6E6;width:100%;"><tbody><tr><td style="direction:ltr;font-size:0px;padding:10px;text-align:center;vertical-align:top;"><div class="mj-column-per-100 outlook-group-fix" style="font-size:13px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%"><tbody><tr><td align="left" style="font-size:0px;padding:0px 0px 0px 0px;word-break:break-word;"><div style="font-family:Arial, Helvetica, sans-serif;font-size:11px;line-height:13px;text-align:left;text-decoration:none;color:#888;"><p>Tu direcci&oacute;n de Email se encuentra registrada en nuestra base de datos porque te inscribiste como suscriptor, participaste en un evento de IESE o aceptaste compartir tus datos con terceros. Si deseas darte de baja de la suscripci&oacute;n y no recibir estas notificaciones puedes actualizarlo <a href="{{{EmailPreferenceCenter_654}}}" rel="nofollow,noreferrer" style="text-decoration:underline;color:black;"><strong><u>aqu&iacute;</u></strong></a>. Si quisieras ejercer alguno de tus derechos u obtener m&aacute;s informaci&oacute;n relacionada con Protecci&oacute;n de Datos puedes escribir un mail a <a href="mailto:gdpr@iese.edu" style="text-decoration:underline;color:black;">gdpr@iese.edu</a>. Tambi&eacute;n puedes consultar nuestra <span style="color:#000000;">Pol&iacute;tica de Privacidad</span> haciendo clic <a href="https://www.iese.edu/privacy-policy/"><strong>aqu&iacute;</strong></a>.</p><!--#COLETILLA_FIN#--></div></td></tr></tbody></table></div></td></tr></tbody></table>',
     localIntro:
-      "Te invitamos a **{eventName}**, una sesion de **IESE Business School** pensada para compartir ideas practicas, conectar con otros profesionales y profundizar en los temas clave del momento.",
+      "Te invitamos a **{eventName}**, una sesión de **IESE Business School** pensada para compartir ideas prácticas, conectar con otros profesionales y profundizar en los temas clave del momento.",
     localDatePrefix: "el",
     localTimePrefix: "de",
     localLocationPrefix: "en",
     localSpeakerPrefix: " Contaremos con",
-    localDetailsPrefix: "La sesion tendra lugar",
+    localDetailsPrefix: "La sesión tendrá lugar",
     localReserve:
       "Reserva tu plaza para acompanarnos y aprovechar una agenda disenada para generar conversacion, aprendizaje y nuevas oportunidades.",
     aiRole:
-      "Eres un copywriter senior de IESE Business School. Escribe el cuerpo de una invitacion a un evento en espanol profesional, directo y elegante. Devuelve solo el cuerpo del email, sin asunto, sin saludo inicial, sin despedida y sin CTA final. Usa 2 o 3 parrafos breves separados por una linea en blanco. Resalta datos clave con **negrita** usando este formato exacto: **texto**. No uses otros formatos markdown. Usa la descripcion aproximada solo como guia de enfoque, audiencia, tono y prioridades: no la copies literalmente, no la cites y no conserves frases de prompt o notas internas. Usa la informacion estructurada del evento como fuente principal. No inventes datos que no aparezcan.",
+      "Eres un copywriter senior de IESE Business School. Escribe el cuerpo de una invitación a un evento en español profesional, directo y elegante. Devuelve solo el cuerpo del email, sin asunto, sin saludo inicial, sin despedida y sin CTA final. Usa 2 o 3 párrafos breves separados por una línea en blanco. Resalta datos clave con **negrita** usando este formato exacto: **texto**. No uses otros formatos markdown. Usa la descripción aproximada solo como guía de enfoque, audiencia, tono y prioridades: no la copies literalmente, no la cites y no conserves frases de prompt o notas internas. Usa la información estructurada del evento como fuente principal. No inventes datos que no aparezcan.",
   };
 }
 
@@ -821,7 +841,7 @@ function deriveListEmailName(input) {
 function deriveSubject(input) {
   return (
     optionalString(input.subject) ||
-    `Invitacion: ${requireString(input.eventName, "el nombre del evento")}`
+    `Invitación: ${requireString(input.eventName, "el nombre del evento")}`
   );
 }
 
@@ -1023,7 +1043,7 @@ function buildGenerationContext(input) {
     templateVariant: normalizeTemplateVariant(input.templateVariant),
     eventName: requireString(input.eventName, "el nombre del evento"),
     eventType: optionalString(input.eventType) || emailCopy(language).eventFallbackType,
-    eventBriefGuidance: requireString(input.eventBrief, "la descripcion aproximada del evento"),
+    eventBriefGuidance: requireString(input.eventBrief, "la descripción aproximada del evento"),
     emailHeadline: optionalString(input.emailHeadline),
     heroTitleText: optionalString(input.heroTitleText),
     heroSubtitleText: optionalString(input.heroSubtitleText),
@@ -1075,7 +1095,7 @@ function generateLocalEmailBody(input) {
     .map((part) => part.trim())
     .filter(Boolean)[0];
   const valueSentence = briefTopic
-    ? `La sesion abordara ${briefTopic.charAt(0).toLowerCase()}${briefTopic.slice(1)}, con una perspectiva practica orientada a directivos y alumni.`
+    ? `La sesión abordará ${briefTopic.charAt(0).toLowerCase()}${briefTopic.slice(1)}, con una perspectiva práctica orientada a directivos y alumni.`
     : copy.localIntro.replace("{eventName}", context.eventName);
 
   return [
@@ -1089,10 +1109,10 @@ function generateLocalEmailBody(input) {
 
 function buildGenerationPrompt(context) {
   return [
-    "Redacta el cuerpo del email de invitacion a partir de estos datos estructurados.",
-    "La propiedad eventBriefGuidance contiene notas aproximadas del usuario: interpretalas como intencion, enfoque, publico, tono y temas; no las copies literalmente.",
-    "Prioriza nombre del evento, sobretitulo/tipo, fecha, hora, ubicacion, ponentes y agenda cuando existan.",
-    "No incluyas CTA final porque el template ya anade botones de registro.",
+    "Redacta el cuerpo del email de invitación a partir de estos datos estructurados.",
+    "La propiedad eventBriefGuidance contiene notas aproximadas del usuario: interprétalas como intención, enfoque, público, tono y temas; no las copies literalmente.",
+    "Prioriza nombre del evento, sobretítulo/tipo, fecha, hora, ubicación, ponentes y agenda cuando existan.",
+    "No incluyas CTA final porque el template ya añade botones de registro.",
     "Datos:",
     JSON.stringify(context, null, 2),
   ].join("\n\n");
@@ -1111,6 +1131,109 @@ function extractOpenAiText(payload) {
   }
 
   return text.join("\n").trim();
+}
+
+const translatableEventFields = [
+  "eventName",
+  "eventType",
+  "emailHeadline",
+  "ctaLabel",
+  "eventBrief",
+  "eventDescription",
+  "heroTitleText",
+  "heroSubtitleText",
+  "hostName",
+  "agendaItems",
+  "otherEventsTitle",
+  "closingTitle",
+  "closingText",
+  "eventsCtaLabel",
+  "resourceTitle1",
+  "resourceTitle2",
+  "resourceTitle3",
+  ...Array.from({ length: 5 }, (_, index) => `speakerTitle${index + 1}`),
+  ...Array.from({ length: 5 }, (_, index) => `speakerDescription${index + 1}`),
+  ...Array.from({ length: 10 }, (_, index) => `otherEventTitle${index + 1}`),
+  ...Array.from({ length: 10 }, (_, index) => `otherEventDescription${index + 1}`),
+  ...Array.from({ length: 10 }, (_, index) => `otherEventVenue${index + 1}`),
+  ...Array.from({ length: 10 }, (_, index) => `otherEventDate${index + 1}`),
+];
+
+export function collectTranslatableEventFields(input) {
+  return Object.fromEntries(
+    translatableEventFields
+      .map((key) => [key, optionalString(input[key])])
+      .filter(([, value]) => value),
+  );
+}
+
+export function parseTranslatedEventFields(text, sourceFields) {
+  const cleaned = cleanString(text)
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new AppError("La IA no devolvió una traducción JSON válida.", 502);
+    try {
+      parsed = JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      throw new AppError("La IA no devolvió una traducción JSON válida.", 502);
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new AppError("La IA no devolvió un objeto de traducción válido.", 502);
+  }
+
+  const translated = {};
+  for (const key of Object.keys(sourceFields)) {
+    if (typeof parsed[key] === "string" && parsed[key].trim()) translated[key] = parsed[key].trim();
+  }
+  if (Object.keys(translated).length !== Object.keys(sourceFields).length) {
+    throw new AppError("La traducción está incompleta. Vuelve a intentarlo.", 502);
+  }
+  return translated;
+}
+
+async function translateEventFieldsWithAi(input) {
+  const targetLanguage = normalizeEmailLanguage(input.emailLanguage);
+  const sourceFields = collectTranslatableEventFields(input);
+  if (Object.keys(sourceFields).length === 0) throw new AppError("No hay textos que traducir.");
+
+  const ai = createAiClient();
+  if (!ai) {
+    throw new AppError("Configura Azure OpenAI u OPENAI_API_KEY para traducir los textos.", 503);
+  }
+
+  const targetLabel = targetLanguage === "en" ? "English" : "Spanish from Spain";
+  const instructions = [
+    `Translate every value in the JSON object into ${targetLabel}.`,
+    "Return only one valid JSON object with exactly the same keys.",
+    "Preserve proper names, IESE program names, brands, URLs, email addresses, numbers, times and markdown markers such as **bold**.",
+    "Preserve line breaks and the pipe-separated structure of agenda items.",
+    "Translate event titles only when they are ordinary descriptive language; keep official branded titles unchanged.",
+    "Do not add, remove, summarize or explain any content.",
+  ].join(" ");
+
+  let payload;
+  try {
+    payload = await ai.client.responses.create(
+      buildAiResponseRequest(ai, instructions, JSON.stringify(sourceFields)),
+    );
+  } catch (error) {
+    throw new AppError("OpenAI no pudo traducir los textos del email.", error.status || error.code || 502, {
+      status: error.status,
+      code: error.code,
+      type: error.type,
+      parameter: error.param,
+    });
+  }
+
+  const translatedFields = parseTranslatedEventFields(extractOpenAiText(payload), sourceFields);
+  return { fields: translatedFields, targetLanguage, source: "openai" };
 }
 
 async function generateEmailBodyWithAi(input) {
@@ -1146,7 +1269,7 @@ async function generateEmailBodyWithAi(input) {
 
   const body = extractOpenAiText(payload);
   if (!body) {
-    throw new AppError("OpenAI no devolvio texto para el cuerpo del email.", 502, payload);
+    throw new AppError("OpenAI no devolvió texto para el cuerpo del email.", 502, payload);
   }
 
   return {
@@ -1492,7 +1615,7 @@ async function exchangeAuthorizationCodeForTokens(request, code, codeVerifier) {
   }
 
   if (!response.ok || !parsed.refresh_token) {
-    throw new AppError("Salesforce no devolvio refresh_token.", 502, parsed);
+    throw new AppError("Salesforce no devolvió refresh_token.", 502, parsed);
   }
 
   await updateEnvValue("SALESFORCE_REFRESH_TOKEN", parsed.refresh_token);
@@ -1583,7 +1706,7 @@ async function getSalesforceAccessToken() {
   }
 
   if (!response.ok || !parsed.access_token) {
-    throw new AppError("Salesforce no devolvio un access token valido.", 502, parsed);
+    throw new AppError("Salesforce no devolvió un access token válido.", 502, parsed);
   }
 
   return parsed.access_token;
@@ -1627,7 +1750,7 @@ async function createPardotListEmail(payload) {
   }
 
   if (!response.ok) {
-    throw new AppError("Pardot rechazo la creacion del list email.", response.status, parsed);
+    throw new AppError("Pardot rechazó la creación del list email.", response.status, parsed);
   }
 
   return {
@@ -1671,7 +1794,7 @@ async function createPardotEmailTemplate(payload) {
   }
 
   if (!response.ok) {
-    throw new AppError("Pardot rechazo la creacion del email template.", response.status, parsed);
+    throw new AppError("Pardot rechazó la creación del email template.", response.status, parsed);
   }
 
   return {
@@ -1687,7 +1810,7 @@ async function readJsonBody(request) {
 
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 1_000_000) throw new AppError("El cuerpo de la peticion es demasiado grande.", 413);
+    if (size > 1_000_000) throw new AppError("El cuerpo de la petición es demasiado grande.", 413);
     chunks.push(chunk);
   }
 
@@ -1697,7 +1820,7 @@ async function readJsonBody(request) {
   try {
     return JSON.parse(raw);
   } catch {
-    throw new AppError("JSON invalido.");
+    throw new AppError("JSON inválido.");
   }
 }
 
@@ -1774,6 +1897,13 @@ async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/translate-event") {
+    const input = await readJsonBody(request);
+    const translated = await translateEventFieldsWithAi(input);
+    sendJson(response, 200, translated);
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/import-event-url") {
     const input = await readJsonBody(request);
     const imported = await importIeseLanding(requireString(input.url, "la URL de la landing"));
@@ -1789,7 +1919,7 @@ async function handleApi(request, response) {
     if (dryRun) {
       sendJson(response, 200, {
         dryRun: true,
-        message: "Modo simulacion activo. No se ha llamado a Pardot.",
+        message: "Modo simulación activo. No se ha llamado a Pardot.",
         ...draft,
       });
       return;
@@ -1826,17 +1956,17 @@ async function handleOAuth(request, response) {
   if (request.method === "GET" && url.pathname === "/oauth/callback") {
     const error = url.searchParams.get("error");
     if (error) {
-      throw new AppError(`Salesforce devolvio error OAuth: ${error}`, 400, {
+      throw new AppError(`Salesforce devolvió error OAuth: ${error}`, 400, {
         description: url.searchParams.get("error_description"),
       });
     }
 
     const code = url.searchParams.get("code");
-    if (!code) throw new AppError("Falta el parametro code en la callback OAuth.", 400);
+    if (!code) throw new AppError("Falta el parámetro code en la callback OAuth.", 400);
 
     const codeVerifier = parseCookies(request).sf_pkce_verifier;
     if (!codeVerifier) {
-      throw new AppError("Falta la cookie PKCE. Vuelve a iniciar la conexion con Salesforce.", 400);
+      throw new AppError("Falta la cookie PKCE. Vuelve a iniciar la conexión con Salesforce.", 400);
     }
 
     await exchangeAuthorizationCodeForTokens(request, code, codeVerifier);
@@ -1873,7 +2003,7 @@ export function createServer() {
       }
 
       if (request.method !== "GET" && request.method !== "HEAD") {
-        sendJson(response, 405, { error: "Metodo no permitido." });
+        sendJson(response, 405, { error: "Método no permitido." });
         return;
       }
 
@@ -1892,7 +2022,7 @@ if (process.argv[1] === __filename) {
     console.log(`HTML generator: http://localhost:${port}`);
     console.log(
       boolFromEnv(process.env.PARDOT_DRY_RUN, true)
-        ? "Modo simulacion activo."
+        ? "Modo simulación activo."
         : "Modo real activo: las solicitudes crearan email templates en Pardot.",
     );
   });

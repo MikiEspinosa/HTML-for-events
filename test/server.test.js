@@ -6,13 +6,45 @@ import {
   buildEmailTemplatePayload,
   buildAiResponseRequest,
   buildListEmailPayload,
+  collectTranslatableEventFields,
   escapeHtml,
   parseCsvIds,
   parseIeseLandingHtml,
+  parseTranslatedEventFields,
   renderTemplate,
   resolveAiConfiguration,
   validateIeseLandingUrl,
 } from "../server.js";
+
+test("collectTranslatableEventFields includes editorial copy and excludes technical values", () => {
+  assert.deepEqual(
+    collectTranslatableEventFields({
+      eventName: "Desayuno ejecutivo",
+      eventDescription: "Una sesión práctica.",
+      speakerName1: "Laura Martínez",
+      speakerTitle1: "Directora general",
+      registrationUrl: "https://example.com",
+      senderEmail: "events@example.com",
+    }),
+    {
+      eventName: "Desayuno ejecutivo",
+      eventDescription: "Una sesión práctica.",
+      speakerTitle1: "Directora general",
+    },
+  );
+});
+
+test("parseTranslatedEventFields accepts fenced JSON and requires every source field", () => {
+  const source = { eventName: "Desayuno", ctaLabel: "Registrarse" };
+  assert.deepEqual(
+    parseTranslatedEventFields('```json\n{"eventName":"Breakfast","ctaLabel":"Register"}\n```', source),
+    { eventName: "Breakfast", ctaLabel: "Register" },
+  );
+  assert.throws(
+    () => parseTranslatedEventFields('{"eventName":"Breakfast"}', source),
+    /incompleta/,
+  );
+});
 
 test("parseIeseLandingHtml maps a standard IESE event landing", () => {
   const html = `<!doctype html><html><head>
@@ -40,6 +72,26 @@ test("parseIeseLandingHtml maps a standard IESE event landing", () => {
   assert.equal(result.fields.venue, "Oriental Club, London");
   assert.equal(result.fields.speakerName1, "Alex Smith");
   assert.match(result.fields.agendaItems, /08:00 \| Session/);
+});
+
+test("parseIeseLandingHtml maps the login-gated IESE event format without importing the login message", () => {
+  const html = `<!doctype html><html><head><meta property="og:title" content="Madrid Alumni Day 2026. | IESE Business School"></head>
+    <body><div id="event-header-container" style="background-image:url(https://example.com/madrid.jpg)">
+      <div id="event_header_name_responsive_name">Madrid Alumni Day 2026.</div>
+      <div id="event_header_name_responsive_type">Madrid Alumni Day 2026</div>
+      <div id="event_header_name_responsive_place">Madrid</div>
+    </div><div id="contentblock"><h2>Esta pagina es exclusiva para empleados. Introduce tu usuario.</h2>
+      <form action="/oauth2/login"><input name="next"></form></div><script>var lang = "es";</script></body></html>`;
+  const result = parseIeseLandingHtml(html, "https://apply.iese.edu/madrid_alumni_day_2026_dm/");
+  assert.equal(result.fields.eventName, "Madrid Alumni Day 2026");
+  assert.equal(result.fields.eventType, "Madrid Alumni Day 2026");
+  assert.equal(result.fields.city, "Madrid");
+  assert.equal(result.fields.timezone, "Europe/Madrid");
+  assert.equal(result.fields.emailLanguage, "es");
+  assert.equal(result.fields.heroImageUrl, "https://example.com/madrid.jpg");
+  assert.equal(result.fields.eventBrief, undefined);
+  assert.equal(result.partial, true);
+  assert.match(result.notice, /Landing privada/);
 });
 
 test("validateIeseLandingUrl only accepts the IESE landing host over HTTPS", () => {

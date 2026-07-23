@@ -27,9 +27,11 @@
                         {{eventType}}
                       </p>
                       {{/showEventType}}
+                      {{#showEmailHeadline}}
                       <h1 style="margin:0;color:#000000;font-size:34px;line-height:1.05;font-weight:800;">
-                        {{heroTitle}}
+                        {{emailHeadline}}
                       </h1>
+                      {{/showEmailHeadline}}
                       {{#showEventName}}
                       <p style="margin:12px 0 0;color:#ffffff;font-size:18px;line-height:1.35;font-weight:700;">
                         <span style="background:#e30613;color:#ffffff;padding:2px 6px;">{{eventName}}</span>
@@ -42,16 +44,6 @@
             </tr>
             <tr>
               <td style="padding:18px 24px 22px;background:#ffffff;">
-                {{#showEmailHeadline}}
-                <h2 style="margin:0;color:#000000;font-size:22px;line-height:1.15;font-weight:800;">
-                  {{emailHeadline}}
-                </h2>
-                {{/showEmailHeadline}}
-                {{#showEventName}}
-                <h3 style="margin:8px 0 18px;color:#000000;font-size:15px;line-height:1.25;font-weight:800;">
-                  {{eventName}}
-                </h3>
-                {{/showEventName}}
                 {{eventDescriptionHtml}}
                 <div style="margin:18px 0 0;text-align:center;">
                   <a href="{{registrationUrl}}" style="display:inline-block;background:#e30613;color:#ffffff;text-decoration:none;font-weight:800;font-size:12px;letter-spacing:0.02em;padding:11px 28px;border-radius:4px;">
@@ -96,13 +88,6 @@
               </td>
             </tr>
             {{/otherEventsRowsHtml}}
-            {{#showResources}}
-            <tr>
-              <td style="padding:4px 16px 0;background:#ffffff;">
-                {{resourcesHtml}}
-              </td>
-            </tr>
-            {{/showResources}}
             {{#showEventsCta}}
             <tr>
               <td align="center" style="padding:22px 24px;background:#ffffff;">
@@ -112,6 +97,13 @@
               </td>
             </tr>
             {{/showEventsCta}}
+            {{#showResources}}
+            <tr>
+              <td style="padding:4px 16px 0;background:#ffffff;">
+                {{resourcesHtml}}
+              </td>
+            </tr>
+            {{/showResources}}
             {{#showEventsCtaSpacer}}
             <tr>
               <td style="padding:0;background:#ffffff;">

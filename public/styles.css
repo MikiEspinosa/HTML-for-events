@@ -234,6 +234,23 @@ h2 {
   min-width: 104px;
 }
 
+.language-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.language-control-row .button {
+  min-width: 128px;
+  white-space: nowrap;
+}
+
+.language-control .inline-status {
+  min-height: 18px;
+  margin: 6px 0 0;
+}
+
 .landing-import .inline-status {
   min-height: 18px;
   margin: 8px 0 0;
@@ -458,6 +475,7 @@ input[type="range"]:focus {
 .module-accordion-content > label,
 .module-accordion-content > .field-grid,
 .module-accordion-content > .field-control,
+.module-accordion-content > .language-control,
 .module-accordion-content > .speaker-editor {
   margin-top: 14px;
 }
@@ -594,6 +612,10 @@ input[type="range"]:focus {
 
 .inline-status.error {
   color: var(--rose);
+}
+
+.inline-status.warning {
+  color: #8a5700;
 }
 
 .button {
@@ -792,6 +814,10 @@ input[type="range"]:focus {
   }
 
   .landing-import-row {
+    grid-template-columns: 1fr;
+  }
+
+  .language-control-row {
     grid-template-columns: 1fr;
   }
 

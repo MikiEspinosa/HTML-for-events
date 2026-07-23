@@ -45,6 +45,7 @@ Las claves, tokens y endpoints privados no se envían al frontend ni se escriben
 - Campos y módulos ocultables.
 - Importación asistida de landings HTTPS de `apply.iese.edu`.
 - Generación bilingüe en español e inglés.
+- Traducción completa de los campos editoriales al idioma seleccionado mediante Azure OpenAI.
 - Ponentes, agenda, otros eventos, recursos y módulos gráficos editables.
 - Previsualización de HTML y payload.
 - Creación de email templates en Account Engagement.
@@ -54,6 +55,7 @@ Las claves, tokens y endpoints privados no se envían al frontend ni se escriben
 - `GET /api/config`: configuración pública y valores predeterminados sin secretos.
 - `POST /api/import-event-url`: extrae datos de una landing IESE permitida.
 - `POST /api/generate-copy`: genera el cuerpo editorial con IA o modo demo.
+- `POST /api/translate-event`: traduce los campos editoriales conservando nombres, formato y estructura.
 - `POST /api/preview`: renderiza HTML, texto y payload.
 - `POST /api/list-email`: nombre conservado por compatibilidad; crea un email template en modo real.
 

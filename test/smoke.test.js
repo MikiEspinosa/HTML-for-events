@@ -53,6 +53,7 @@ const sampleInput = {
   showEventsCta: "true",
   eventsCtaLabel: "Ver todos los eventos en la web",
   eventsCtaUrl: "https://www.iese.edu/events/",
+  resourceTitle1: "Mis Recursos y Servicios",
   showFullWidthImage: "true",
   fullWidthImageUrl:
     "https://prdt.iese.edu/l/501101/2026-07-17/5sb92f/501101/1784336531UBju9cOe/full_width_example__1_.png",
@@ -104,12 +105,15 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(pageHtml, /Credenciales listas/);
   assert.doesNotMatch(pageHtml, /Modo real/);
   assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Datos del evento<\/h2>/);
-  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Configuracion general<\/summary>/);
+  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Configuración general<\/summary>/);
   assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Cabecera e imagen hero<\/summary>/);
   assert.match(pageHtml, /<details class="module-accordion">\s*<summary>CTA e imagen inferior<\/summary>/);
+  assert.match(pageHtml, /<details class="module-accordion">\s*<summary>Idioma del email<\/summary>/);
+  assert.ok(pageHtml.indexOf("<summary>CTA e imagen inferior</summary>") < pageHtml.indexOf("<summary>Idioma del email</summary>"));
+  assert.ok(pageHtml.indexOf("<summary>Idioma del email</summary>") < pageHtml.indexOf("<h2>Contenido del email</h2>"));
   assert.doesNotMatch(pageHtml, /<details class="module-accordion" open>/);
   assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Contenido del email<\/h2>/);
-  assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Envio en Pardot<\/h2>/);
+  assert.match(pageHtml, /<details class="panel collapsible-panel">\s*<summary class="panel-head collapsible-summary">\s*<h2>Envío en Pardot<\/h2>/);
   assert.doesNotMatch(pageHtml, /<details class="panel collapsible-panel" open>/);
   assert.match(pageHtml, /<\/details>\s*<div class="actions form-actions">\s*<button type="button" id="sampleButton"/);
   assert.doesNotMatch(pageHtml, /Campaign ID/);
@@ -120,7 +124,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(pageHtml, /Programar envio/);
   assert.doesNotMatch(pageHtml, /Email operacional/);
   assert.doesNotMatch(pageHtml, /Email template ID/);
-  assert.match(pageHtml, /Descripcion aproximada del evento/);
+  assert.match(pageHtml, /Descripción aproximada del evento/);
   assert.match(pageHtml, /Generar cuerpo con IA/);
   assert.match(pageHtml, /Idioma del email/);
   assert.match(pageHtml, /English/);
@@ -163,7 +167,9 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(pageHtml, /showFullWidthImage/);
   assert.match(pageHtml, /fullWidthImageUrl/);
   assert.match(pageHtml, /fullWidthImageLinkUrl/);
-  assert.match(pageHtml, /Numero de ponentes/);
+  assert.match(pageHtml, /Número de ponentes/);
+  assert.match(pageHtml, /id="translateEmailButton"/);
+  assert.match(pageHtml, /Traducir textos/);
   assert.match(pageHtml, /<option value="0">0<\/option>/);
   assert.match(pageHtml, /Ponente 5/);
   assert.match(pageHtml, /Foto del ponente 5/);
@@ -229,7 +235,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(data.html, /Data-driven pricing: from strategy to tactics and analytics/);
   assert.match(data.html, /Pricing aplicado a decisiones comerciales con analitica/);
   assert.match(data.html, /IESE Madrid · Thursday, June 11 \| 3:00 pm/);
-  assert.match(data.html, /Mas informacion &rarr;/);
+  assert.match(data.html, /Más información &rarr;/);
   assert.match(data.html, /border-top:2px solid #e30613/);
   assert.match(data.html, /https:\/\/example\.com\/pricing/);
   assert.match(data.text, /Otros eventos para ti:/);
@@ -241,6 +247,9 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(data.html, /background:#ffffff;color:#000000/);
   assert.match(data.html, /color:#e30613[^>]+text-transform:uppercase/);
   assert.match(data.html, /<h1 style="margin:0;color:#000000/);
+  assert.match(data.html, /<h1 style="margin:0;color:#000000[^>]*>\s*IESE te invita\s*<\/h1>/);
+  assert.doesNotMatch(data.html, /<h2[^>]*>\s*IESE te invita\s*<\/h2>/);
+  assert.doesNotMatch(data.html, /<h3[^>]*>\s*AI Breakfast Madrid\s*<\/h3>/);
   assert.doesNotMatch(data.html, /Personaliza tu experiencia/);
   assert.match(data.html, /&#128241;/);
   assert.match(data.html, /&#9993;/);
@@ -252,6 +261,8 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(data.html, /{{{dynamic_content_864}}}/);
   assert.match(data.html, /Ver todos los eventos en la web/);
   assert.match(data.html, /https:\/\/www\.iese\.edu\/events\//);
+  assert.ok(data.html.indexOf("Otros eventos para ti") < data.html.indexOf("Ver todos los eventos en la web"));
+  assert.ok(data.html.indexOf("Ver todos los eventos en la web") < data.html.indexOf("Mis Recursos y Servicios"));
   assert.doesNotMatch(data.html, /showEventsCtaSpacer/);
   assert.match(data.html, /https:\/\/prdt\.iese\.edu\/l\/501101\/2026-07-17\/5sb92f\/501101\/1784336531UBju9cOe\/full_width_example__1_\.png/);
   assert.match(data.html, /<a href="https:\/\/example\.com\/full-width-link" style="display:block;text-decoration:none;border:0;">/);
@@ -312,7 +323,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(englishData.text, /Extra resources:/);
   assert.doesNotMatch(englishData.html, /Ponentes/);
   assert.doesNotMatch(englishData.html, /Otros eventos para ti/);
-  assert.doesNotMatch(englishData.html, /Mas informacion/);
+  assert.doesNotMatch(englishData.html, /Más información/);
   assert.doesNotMatch(englishData.html, /Ver todos los eventos en la web/);
   assert.doesNotMatch(englishData.html, /Personalize your experience/);
   assert.doesNotMatch(englishData.html, /{{{dynamic_content_864}}}/);
@@ -372,7 +383,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.doesNotMatch(hiddenFieldsData.html, /<span style="background:#e30613;color:#ffffff;padding:2px 6px;">AI Breakfast Madrid<\/span>/);
   assert.doesNotMatch(hiddenFieldsData.html, /<h3 style="margin:8px 0 18px;color:#000000;font-size:15px;line-height:1.25;font-weight:800;">\s*AI Breakfast Madrid\s*<\/h3>/);
   assert.doesNotMatch(hiddenFieldsData.html, /Desayuno ejecutivo/);
-  assert.doesNotMatch(hiddenFieldsData.html, /Some moments are too good to miss/);
+  assert.doesNotMatch(hiddenFieldsData.html, /IESE te invita/);
   assert.doesNotMatch(hiddenFieldsData.html, /Europe\/Madrid/);
   assert.doesNotMatch(hiddenFieldsData.html, /Impact Hub/);
   assert.doesNotMatch(hiddenFieldsData.html, /<h2 style="margin:0 0 4px[^>]*>\s*Madrid\.\s*<\/h2>/);

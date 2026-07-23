@@ -14,6 +14,8 @@ const emailLanguage = document.querySelector("#emailLanguage");
 const landingUrl = document.querySelector("#landingUrl");
 const importLandingButton = document.querySelector("#importLandingButton");
 const landingImportStatus = document.querySelector("#landingImportStatus");
+const translateEmailButton = document.querySelector("#translateEmailButton");
+const translationStatus = document.querySelector("#translationStatus");
 const buttons = [...document.querySelectorAll("button")];
 
 let previewTimer;
@@ -31,15 +33,15 @@ const sample = {
   templateVariant: "generic",
   eventType: "Desayuno ejecutivo",
   showEventType: true,
-  emailHeadline: "Some moments are too good to miss",
+  emailHeadline: "IESE te invita",
   showEmailHeadline: true,
   ctaLabel: "REGISTRARSE",
   eventBrief:
-    "Desayuno ejecutivo para equipos de marketing y ventas. Queremos invitar a alumni y directivos a una sesion practica sobre como preparar datos, automatizaciones y reporting antes de lanzar nuevos casos de uso con IA. Tono cercano, profesional e IESE.",
+    "Desayuno ejecutivo para equipos de marketing y ventas. Queremos invitar a alumni y directivos a una sesión práctica sobre cómo preparar datos, automatizaciones y reporting antes de lanzar nuevos casos de uso con IA. Tono cercano, profesional e IESE.",
   eventDescription: "",
   heroImageUrl: defaultHeroImageUrl,
   heroImageFocus: "50",
-  heroTitleText: "Navegando la explosion de la",
+  heroTitleText: "Navegando la explosión de la",
   showHeroTitle: true,
   heroSubtitleText: "Inteligencia Artificial",
   showHeroSubtitle: true,
@@ -56,36 +58,36 @@ const sample = {
   city: "Madrid",
   showCity: true,
   speakerCount: "2",
-  speakerName1: "Laura Martinez",
+  speakerName1: "Laura Martínez",
   speakerTitle1: "Directora de Marketing",
   speakerPhotoUrl1: "",
   speakerPhotoFocus1: "50",
   showSpeakerDescription1: true,
   speakerDescription1:
     "Especialista en marketing B2B y adopción de inteligencia artificial en equipos comerciales.",
-  speakerName2: "Javier Gomez",
-  speakerTitle2: "Profesor de Direccion Comercial",
+  speakerName2: "Javier Gómez",
+  speakerTitle2: "Profesor de Dirección Comercial",
   speakerPhotoUrl2: "",
   speakerPhotoFocus2: "50",
   showSpeakerDescription2: true,
   speakerDescription2:
     "Ha acompañado a equipos directivos en procesos de transformación comercial y crecimiento.",
   agendaItems:
-    "09:30 | Welcome remarks | IESE Business School\n09:45 | Keynote session | Laura Martinez\n10:30 | Networking coffee\n11:00 | Closing remarks | Equipo IESE",
+    "09:30 | Welcome remarks | IESE Business School\n09:45 | Keynote session | Laura Martínez\n10:30 | Networking coffee\n11:00 | Closing remarks | Equipo IESE",
   showAgenda: true,
   showOtherEvents: true,
   otherEventsTitle: "Otros eventos para ti",
   otherEventsCount: "2",
   otherEventTitle1: "Data-driven pricing: from strategy to tactics and analytics",
   otherEventDescription1:
-    "Una sesion para transformar estrategia, analitica y pricing en decisiones comerciales accionables.",
+    "Una sesión para transformar estrategia, analítica y pricing en decisiones comerciales accionables.",
   otherEventVenue1: "IESE Madrid",
   otherEventDate1: "Thursday, June 11",
   otherEventTime1: "3:00 pm",
   otherEventUrl1: "https://www.iese.edu/events/",
   otherEventTitle2: "IA en la cadena de suministro",
   otherEventDescription2:
-    "Claves para aplicar inteligencia artificial a operaciones, prevision y eficiencia en supply chain.",
+    "Claves para aplicar inteligencia artificial a operaciones, previsión y eficiencia en supply chain.",
   otherEventVenue2: "IESE Barcelona",
   otherEventDate2: "Lunes, 11 de junio",
   otherEventTime2: "3:00 pm",
@@ -94,7 +96,7 @@ const sample = {
   agendaUrl: "https://example.com/eventos/ai-breakfast-madrid/agenda",
   closingTitle: "Construyendo futuro juntos",
   closingText:
-    "Nos encantara compartir una sesion con ideas practicas, networking y perspectiva IESE.",
+    "Nos encantará compartir una sesión con ideas prácticas, networking y perspectiva IESE.",
   showResources: true,
   resourceTitle1: "Mis Recursos y Servicios",
   resourceUrl1: "https://www.iese.edu/alumni/",
@@ -117,33 +119,6 @@ const sample = {
   senderName: "Marketing Team",
   senderEmail: "iese@iese.edu",
   replyToEmail: "events@example.com",
-};
-
-const languageDefaults = {
-  es: {
-    eventType: "Desayuno ejecutivo",
-    emailHeadline: "Some moments are too good to miss",
-    heroTitleText: "Navegando la explosion de la",
-    heroSubtitleText: "Inteligencia Artificial",
-    ctaLabel: "REGISTRARSE",
-    otherEventsTitle: "Otros eventos para ti",
-    eventsCtaLabel: "Ver todos los eventos en la web",
-    closingTitle: "Construyendo futuro juntos",
-    closingText:
-      "Nos encantara compartir una sesion con ideas practicas, networking y perspectiva IESE.",
-  },
-  en: {
-    eventType: "Executive breakfast",
-    emailHeadline: "Some moments are too good to miss",
-    heroTitleText: "Navigating the AI",
-    heroSubtitleText: "explosion",
-    ctaLabel: "REGISTER",
-    otherEventsTitle: "Other events for you",
-    eventsCtaLabel: "See all events on the website",
-    closingTitle: "Building the future together",
-    closingText:
-      "We look forward to sharing a session with practical ideas, networking, and an IESE perspective.",
-  },
 };
 
 function setResult(message, type = "neutral") {
@@ -169,6 +144,11 @@ function setAiStatus(message, type = "neutral") {
 function setLandingImportStatus(message, type = "neutral") {
   landingImportStatus.textContent = message;
   landingImportStatus.className = `inline-status ${type}`;
+}
+
+function setTranslationStatus(message, type = "neutral") {
+  translationStatus.textContent = message;
+  translationStatus.className = `inline-status ${type}`;
 }
 
 function setLoading(loading) {
@@ -219,22 +199,6 @@ function updateAllSpeakerPhotoPreviews() {
   for (let index = 1; index <= 5; index += 1) updateSpeakerPhotoPreview(index);
 }
 
-function applyLanguageDefaults() {
-  const currentLanguage = emailLanguage.value || "es";
-  const previousLanguage = currentLanguage === "en" ? "es" : "en";
-  const nextDefaults = languageDefaults[currentLanguage];
-  const previousDefaults = languageDefaults[previousLanguage];
-
-  for (const [fieldName, nextValue] of Object.entries(nextDefaults)) {
-    const field = form.elements[fieldName];
-    if (!field) continue;
-    const currentValue = field.value.trim();
-    if (!currentValue || currentValue === previousDefaults[fieldName]) {
-      field.value = nextValue;
-    }
-  }
-}
-
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -278,7 +242,7 @@ async function updatePreview({ quiet = true } = {}) {
       body: JSON.stringify(formData()),
     });
     renderPreview(data);
-    if (!quiet) setResult("Previsualizacion actualizada.", "success");
+    if (!quiet) setResult("Previsualización actualizada.", "success");
   } catch (error) {
     if (!quiet) setResult(error.message, "error");
   }
@@ -327,7 +291,7 @@ async function loadConfig() {
     config.status.hasBusinessUnitId &&
     (config.status.hasStaticAccessToken || config.status.hasRefreshTokenFlow);
   if (modeBadge) {
-    modeBadge.textContent = config.dryRun ? "Simulacion" : "Modo real";
+    modeBadge.textContent = config.dryRun ? "Simulación" : "Modo real";
     modeBadge.classList.toggle("real", !config.dryRun);
   }
   if (configBadge) {
@@ -382,7 +346,8 @@ importLandingButton.addEventListener("click", async () => {
     updateAllSpeakerPhotoPreviews();
     await updatePreview({ quiet: true });
     const count = imported.importedFields?.length || Object.keys(imported.fields || {}).length;
-    setLandingImportStatus(`${count} campos importados. Revisa los datos antes de generar el email.`, "success");
+    const message = `${count} campos importados. ${imported.notice || "Revisa los datos antes de generar el email."}`;
+    setLandingImportStatus(message, imported.partial ? "warning" : "success");
   } catch (error) {
     setLandingImportStatus(error.message, "error");
   } finally {
@@ -391,11 +356,35 @@ importLandingButton.addEventListener("click", async () => {
 });
 
 emailLanguage.addEventListener("change", () => {
-  applyLanguageDefaults();
-  if (form.elements.eventDescription.value.trim()) {
-    setAiStatus("Idioma actualizado. Vuelve a generar el cuerpo para reescribirlo en el idioma elegido.", "neutral");
-  }
+  setTranslationStatus("Pulsa «Traducir textos» para aplicar el idioma seleccionado.", "neutral");
   updatePreview({ quiet: true });
+});
+
+translateEmailButton.addEventListener("click", async () => {
+  clearResult();
+  setLoading(true);
+  setTranslationStatus("Traduciendo todos los textos del email...", "neutral");
+  try {
+    const translated = await fetchJson("/api/translate-event", {
+      method: "POST",
+      body: JSON.stringify(formData()),
+    });
+    applyValues(translated.fields || {});
+    updateSpeakerFields();
+    updateOtherEventFields();
+    updateAllSpeakerPhotoPreviews();
+    await updatePreview({ quiet: true });
+    setTranslationStatus(
+      emailLanguage.value === "en"
+        ? "Todos los textos se han traducido al inglés."
+        : "Todos los textos se han traducido al español.",
+      "success",
+    );
+  } catch (error) {
+    setTranslationStatus(error.message, "error");
+  } finally {
+    setLoading(false);
+  }
 });
 
 generateCopyButton.addEventListener("click", async () => {
@@ -403,7 +392,7 @@ generateCopyButton.addEventListener("click", async () => {
   const data = formData();
 
   if (!data.eventName || !data.eventBrief) {
-    setAiStatus("Completa el nombre del evento y la descripcion aproximada.", "error");
+    setAiStatus("Completa el nombre del evento y la descripción aproximada.", "error");
     return;
   }
 
@@ -475,7 +464,7 @@ form.addEventListener("submit", async (event) => {
         setResultHtml(`<div>Email template creado en Pardot. ID: ${id}</div>${link}`, "success");
       }
     } else {
-      setResult("Previsualizacion actualizada.", "success");
+      setResult("Previsualización actualizada.", "success");
     }
   } catch (error) {
     setResult(error.message, "error");

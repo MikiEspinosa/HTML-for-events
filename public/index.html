@@ -37,10 +37,10 @@
             </div>
 
             <details class="module-accordion">
-              <summary>Configuracion general</summary>
+              <summary>Configuración general</summary>
               <div class="module-accordion-content">
 
-            <div class="field-grid two">
+            <div class="field-grid">
               <div class="field-control">
                 <div class="field-control-head">
                   <label class="field-label" for="eventName">Nombre del evento</label>
@@ -53,13 +53,6 @@
                 </div>
                 <input name="eventName" autocomplete="off" required placeholder="AI Breakfast Madrid">
               </div>
-              <label>
-                Idioma del email
-                <select name="emailLanguage" id="emailLanguage">
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                </select>
-              </label>
             </div>
 
             <div class="field-grid two">
@@ -96,10 +89,10 @@
                     Mostrar
                   </label>
                 </div>
-                <input name="emailHeadline" placeholder="Some moments are too good to miss">
+                <input name="emailHeadline" placeholder="IESE te invita">
               </div>
               <label>
-                Texto del boton
+                Texto del botón
                 <input name="ctaLabel" placeholder="REGISTRARSE">
               </label>
             </div>
@@ -123,7 +116,7 @@
             <div class="field-grid two">
               <div class="field-control">
                 <div class="field-control-head">
-                  <label class="field-label" for="heroTitleText">Titulo sobre imagen</label>
+                  <label class="field-label" for="heroTitleText">Título sobre imagen</label>
                   <label class="visibility-switch">
                     <input type="hidden" name="showHeroTitle" value="false">
                     <input type="checkbox" name="showHeroTitle" value="true" checked>
@@ -131,11 +124,11 @@
                     Mostrar
                   </label>
                 </div>
-                <input name="heroTitleText" placeholder="Navegando la explosion de la">
+                <input name="heroTitleText" placeholder="Navegando la explosión de la">
               </div>
               <div class="field-control">
                 <div class="field-control-head">
-                  <label class="field-label" for="heroSubtitleText">Subtitulo sobre imagen</label>
+                  <label class="field-label" for="heroSubtitleText">Subtítulo sobre imagen</label>
                   <label class="visibility-switch">
                     <input type="hidden" name="showHeroSubtitle" value="false">
                     <input type="checkbox" name="showHeroSubtitle" value="true" checked>
@@ -156,7 +149,7 @@
               <label class="check-field">
                 <input type="hidden" name="showHeroSubtitleHighlight" value="false">
                 <input type="checkbox" name="showHeroSubtitleHighlight" value="true" checked>
-                Fondo rojo del subtitulo
+                Fondo rojo del subtítulo
               </label>
             </div>
 
@@ -164,7 +157,7 @@
             </details>
 
             <details class="module-accordion">
-              <summary>Fecha, registro y ubicacion</summary>
+              <summary>Fecha, registro y ubicación</summary>
               <div class="module-accordion-content">
 
             <div class="field-grid three">
@@ -237,7 +230,7 @@
 
             <div class="field-grid two">
               <label>
-                Numero de ponentes
+                Número de ponentes
                 <select name="speakerCount" id="speakerCount">
                   <option value="0">0</option>
                   <option value="1">1</option>
@@ -491,11 +484,11 @@
               </div>
               <div class="field-grid two">
                 <label>
-                  Titulo del modulo
+                  Título del módulo
                   <input name="otherEventsTitle" id="otherEventsTitle" placeholder="Otros eventos para ti">
                 </label>
                 <label>
-                  Numero de eventos
+                  Número de eventos
                   <select name="otherEventsCount" id="otherEventsCount">
                     <option value="0">0</option>
                     <option value="1">1</option>
@@ -515,7 +508,7 @@
                 <section class="other-event-editor" data-other-event-index="1">
                   <div class="field-grid two">
                     <label>
-                      Titulo del evento 1
+                      Título del evento 1
                       <input name="otherEventTitle1" placeholder="Data-driven pricing">
                     </label>
                     <label>
@@ -524,8 +517,8 @@
                     </label>
                   </div>
                   <label>
-                    Descripcion 1
-                    <textarea name="otherEventDescription1" rows="2" placeholder="Breve descripcion del evento."></textarea>
+                    Descripción 1
+                    <textarea name="otherEventDescription1" rows="2" placeholder="Breve descripción del evento."></textarea>
                   </label>
                   <div class="field-grid three">
                     <label>
@@ -537,7 +530,7 @@
                       <input name="otherEventTime1" placeholder="3:00 pm">
                     </label>
                     <label>
-                      Enlace de mas informacion 1
+                      Enlace de más información 1
                       <input name="otherEventUrl1" type="url" placeholder="https://...">
                     </label>
                   </div>
@@ -545,7 +538,7 @@
                 <section class="other-event-editor" data-other-event-index="2">
                   <div class="field-grid two">
                     <label>
-                      Titulo del evento 2
+                      Título del evento 2
                       <input name="otherEventTitle2" placeholder="IA en la cadena de suministro">
                     </label>
                     <label>
@@ -554,8 +547,8 @@
                     </label>
                   </div>
                   <label>
-                    Descripcion 2
-                    <textarea name="otherEventDescription2" rows="2" placeholder="Breve descripcion del evento."></textarea>
+                    Descripción 2
+                    <textarea name="otherEventDescription2" rows="2" placeholder="Breve descripción del evento."></textarea>
                   </label>
                   <div class="field-grid three">
                     <label>
@@ -567,50 +560,50 @@
                       <input name="otherEventTime2" placeholder="3:00 pm">
                     </label>
                     <label>
-                      Enlace de mas informacion 2
+                      Enlace de más información 2
                       <input name="otherEventUrl2" type="url" placeholder="https://...">
                     </label>
                   </div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="3" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 3<input name="otherEventTitle3" placeholder="Titulo"></label><label>Lugar 3<input name="otherEventVenue3" placeholder="Lugar"></label></div>
-                  <label>Descripcion 3<textarea name="otherEventDescription3" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 3<input name="otherEventDate3" placeholder="Fecha"></label><label>Hora 3<input name="otherEventTime3" placeholder="Hora"></label><label>Enlace de mas informacion 3<input name="otherEventUrl3" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 3<input name="otherEventTitle3" placeholder="Título"></label><label>Lugar 3<input name="otherEventVenue3" placeholder="Lugar"></label></div>
+                  <label>Descripción 3<textarea name="otherEventDescription3" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 3<input name="otherEventDate3" placeholder="Fecha"></label><label>Hora 3<input name="otherEventTime3" placeholder="Hora"></label><label>Enlace de más información 3<input name="otherEventUrl3" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="4" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 4<input name="otherEventTitle4" placeholder="Titulo"></label><label>Lugar 4<input name="otherEventVenue4" placeholder="Lugar"></label></div>
-                  <label>Descripcion 4<textarea name="otherEventDescription4" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 4<input name="otherEventDate4" placeholder="Fecha"></label><label>Hora 4<input name="otherEventTime4" placeholder="Hora"></label><label>Enlace de mas informacion 4<input name="otherEventUrl4" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 4<input name="otherEventTitle4" placeholder="Título"></label><label>Lugar 4<input name="otherEventVenue4" placeholder="Lugar"></label></div>
+                  <label>Descripción 4<textarea name="otherEventDescription4" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 4<input name="otherEventDate4" placeholder="Fecha"></label><label>Hora 4<input name="otherEventTime4" placeholder="Hora"></label><label>Enlace de más información 4<input name="otherEventUrl4" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="5" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 5<input name="otherEventTitle5" placeholder="Titulo"></label><label>Lugar 5<input name="otherEventVenue5" placeholder="Lugar"></label></div>
-                  <label>Descripcion 5<textarea name="otherEventDescription5" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 5<input name="otherEventDate5" placeholder="Fecha"></label><label>Hora 5<input name="otherEventTime5" placeholder="Hora"></label><label>Enlace de mas informacion 5<input name="otherEventUrl5" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 5<input name="otherEventTitle5" placeholder="Título"></label><label>Lugar 5<input name="otherEventVenue5" placeholder="Lugar"></label></div>
+                  <label>Descripción 5<textarea name="otherEventDescription5" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 5<input name="otherEventDate5" placeholder="Fecha"></label><label>Hora 5<input name="otherEventTime5" placeholder="Hora"></label><label>Enlace de más información 5<input name="otherEventUrl5" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="6" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 6<input name="otherEventTitle6" placeholder="Titulo"></label><label>Lugar 6<input name="otherEventVenue6" placeholder="Lugar"></label></div>
-                  <label>Descripcion 6<textarea name="otherEventDescription6" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 6<input name="otherEventDate6" placeholder="Fecha"></label><label>Hora 6<input name="otherEventTime6" placeholder="Hora"></label><label>Enlace de mas informacion 6<input name="otherEventUrl6" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 6<input name="otherEventTitle6" placeholder="Título"></label><label>Lugar 6<input name="otherEventVenue6" placeholder="Lugar"></label></div>
+                  <label>Descripción 6<textarea name="otherEventDescription6" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 6<input name="otherEventDate6" placeholder="Fecha"></label><label>Hora 6<input name="otherEventTime6" placeholder="Hora"></label><label>Enlace de más información 6<input name="otherEventUrl6" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="7" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 7<input name="otherEventTitle7" placeholder="Titulo"></label><label>Lugar 7<input name="otherEventVenue7" placeholder="Lugar"></label></div>
-                  <label>Descripcion 7<textarea name="otherEventDescription7" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 7<input name="otherEventDate7" placeholder="Fecha"></label><label>Hora 7<input name="otherEventTime7" placeholder="Hora"></label><label>Enlace de mas informacion 7<input name="otherEventUrl7" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 7<input name="otherEventTitle7" placeholder="Título"></label><label>Lugar 7<input name="otherEventVenue7" placeholder="Lugar"></label></div>
+                  <label>Descripción 7<textarea name="otherEventDescription7" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 7<input name="otherEventDate7" placeholder="Fecha"></label><label>Hora 7<input name="otherEventTime7" placeholder="Hora"></label><label>Enlace de más información 7<input name="otherEventUrl7" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="8" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 8<input name="otherEventTitle8" placeholder="Titulo"></label><label>Lugar 8<input name="otherEventVenue8" placeholder="Lugar"></label></div>
-                  <label>Descripcion 8<textarea name="otherEventDescription8" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 8<input name="otherEventDate8" placeholder="Fecha"></label><label>Hora 8<input name="otherEventTime8" placeholder="Hora"></label><label>Enlace de mas informacion 8<input name="otherEventUrl8" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 8<input name="otherEventTitle8" placeholder="Título"></label><label>Lugar 8<input name="otherEventVenue8" placeholder="Lugar"></label></div>
+                  <label>Descripción 8<textarea name="otherEventDescription8" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 8<input name="otherEventDate8" placeholder="Fecha"></label><label>Hora 8<input name="otherEventTime8" placeholder="Hora"></label><label>Enlace de más información 8<input name="otherEventUrl8" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="9" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 9<input name="otherEventTitle9" placeholder="Titulo"></label><label>Lugar 9<input name="otherEventVenue9" placeholder="Lugar"></label></div>
-                  <label>Descripcion 9<textarea name="otherEventDescription9" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 9<input name="otherEventDate9" placeholder="Fecha"></label><label>Hora 9<input name="otherEventTime9" placeholder="Hora"></label><label>Enlace de mas informacion 9<input name="otherEventUrl9" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 9<input name="otherEventTitle9" placeholder="Título"></label><label>Lugar 9<input name="otherEventVenue9" placeholder="Lugar"></label></div>
+                  <label>Descripción 9<textarea name="otherEventDescription9" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 9<input name="otherEventDate9" placeholder="Fecha"></label><label>Hora 9<input name="otherEventTime9" placeholder="Hora"></label><label>Enlace de más información 9<input name="otherEventUrl9" type="url" placeholder="https://..."></label></div>
                 </section>
                 <section class="other-event-editor" data-other-event-index="10" hidden>
-                  <div class="field-grid two"><label>Titulo del evento 10<input name="otherEventTitle10" placeholder="Titulo"></label><label>Lugar 10<input name="otherEventVenue10" placeholder="Lugar"></label></div>
-                  <label>Descripcion 10<textarea name="otherEventDescription10" rows="2" placeholder="Breve descripcion del evento."></textarea></label>
-                  <div class="field-grid three"><label>Fecha 10<input name="otherEventDate10" placeholder="Fecha"></label><label>Hora 10<input name="otherEventTime10" placeholder="Hora"></label><label>Enlace de mas informacion 10<input name="otherEventUrl10" type="url" placeholder="https://..."></label></div>
+                  <div class="field-grid two"><label>Título del evento 10<input name="otherEventTitle10" placeholder="Título"></label><label>Lugar 10<input name="otherEventVenue10" placeholder="Lugar"></label></div>
+                  <label>Descripción 10<textarea name="otherEventDescription10" rows="2" placeholder="Breve descripción del evento."></textarea></label>
+                  <div class="field-grid three"><label>Fecha 10<input name="otherEventDate10" placeholder="Fecha"></label><label>Hora 10<input name="otherEventTime10" placeholder="Hora"></label><label>Enlace de más información 10<input name="otherEventUrl10" type="url" placeholder="https://..."></label></div>
                 </section>
               </div>
             </div>
@@ -629,7 +622,7 @@
               </label>
               <label>
                 Texto de cierre
-                <input name="closingText" placeholder="Nos encantara compartir una sesion con ideas practicas.">
+                <input name="closingText" placeholder="Nos encantará compartir una sesión con ideas prácticas.">
               </label>
             </div>
 
@@ -739,6 +732,25 @@
             </div>
               </div>
             </details>
+
+            <details class="module-accordion">
+              <summary>Idioma del email</summary>
+              <div class="module-accordion-content">
+                <div class="language-control">
+                  <label>
+                    Idioma de salida
+                    <div class="language-control-row">
+                      <select name="emailLanguage" id="emailLanguage">
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                      </select>
+                      <button id="translateEmailButton" type="button" class="button ghost">Traducir textos</button>
+                    </div>
+                  </label>
+                  <p id="translationStatus" class="inline-status" aria-live="polite"></p>
+                </div>
+              </div>
+            </details>
           </details>
 
           <details class="panel collapsible-panel">
@@ -747,8 +759,8 @@
             </summary>
 
             <label>
-              Descripcion aproximada del evento
-              <textarea name="eventBrief" required rows="4" maxlength="1200" placeholder="Notas breves: objetivo del evento, publico invitado, temas clave, tono y cualquier detalle que deba aparecer."></textarea>
+              Descripción aproximada del evento
+              <textarea name="eventBrief" required rows="4" maxlength="1200" placeholder="Notas breves: objetivo del evento, público invitado, temas clave, tono y cualquier detalle que deba aparecer."></textarea>
             </label>
 
             <div class="ai-row">
@@ -756,19 +768,19 @@
                 Generar cuerpo con IA
               </button>
               <span id="aiStatus" class="inline-status" aria-live="polite">
-                Escribe una descripcion aproximada y genera el cuerpo del mail.
+                Escribe una descripción aproximada y genera el cuerpo del mail.
               </span>
             </div>
 
             <label>
               Cuerpo del email generado
-              <textarea name="eventDescription" rows="7" maxlength="1800" placeholder="Aqui aparecera el cuerpo generado por IA. Puedes editarlo antes de previsualizar. Usa lineas en blanco para separar parrafos y **texto** para negritas."></textarea>
+              <textarea name="eventDescription" rows="7" maxlength="1800" placeholder="Aquí aparecerá el cuerpo generado por IA. Puedes editarlo antes de previsualizar. Usa líneas en blanco para separar párrafos y **texto** para negritas."></textarea>
             </label>
           </details>
 
           <details class="panel collapsible-panel">
             <summary class="panel-head collapsible-summary">
-              <h2>Envio en Pardot</h2>
+              <h2>Envío en Pardot</h2>
             </summary>
 
             <div class="field-grid two">
@@ -778,7 +790,7 @@
               </label>
               <label>
                 Asunto
-                <input name="subject" placeholder="Invitacion: AI Breakfast Madrid">
+                <input name="subject" placeholder="Invitación: AI Breakfast Madrid">
               </label>
             </div>
 
@@ -811,10 +823,10 @@
         <aside class="preview-panel">
           <div class="preview-head">
             <div>
-              <p class="eyebrow">Previsualizacion</p>
+              <p class="eyebrow">Previsualización</p>
               <h2 id="previewTitle">Email</h2>
             </div>
-            <div class="tabs" role="tablist" aria-label="Vista de previsualizacion">
+            <div class="tabs" role="tablist" aria-label="Vista de previsualización">
               <button type="button" class="tab active" data-tab="email">Email</button>
               <button type="button" class="tab" data-tab="payload">Payload</button>
             </div>
@@ -823,7 +835,7 @@
           <div id="resultBox" class="result" aria-live="polite"></div>
 
           <section id="emailTab" class="tab-panel active">
-            <iframe id="htmlPreview" title="Previsualizacion HTML del email"></iframe>
+            <iframe id="htmlPreview" title="Previsualización HTML del email"></iframe>
           </section>
 
           <section id="payloadTab" class="tab-panel">
