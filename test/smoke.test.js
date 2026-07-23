@@ -263,6 +263,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(data.html, /https:\/\/www\.iese\.edu\/events\//);
   assert.ok(data.html.indexOf("Otros eventos para ti") < data.html.indexOf("Ver todos los eventos en la web"));
   assert.ok(data.html.indexOf("Ver todos los eventos en la web") < data.html.indexOf("Mis Recursos y Servicios"));
+  assert.match(data.html, /<td style="padding:4px 16px 28px;background:#ffffff;">/);
   assert.doesNotMatch(data.html, /showEventsCtaSpacer/);
   assert.match(data.html, /https:\/\/prdt\.iese\.edu\/l\/501101\/2026-07-17\/5sb92f\/501101\/1784336531UBju9cOe\/full_width_example__1_\.png/);
   assert.match(data.html, /<a href="https:\/\/example\.com\/full-width-link" style="display:block;text-decoration:none;border:0;">/);
@@ -514,7 +515,7 @@ test("server serves the app and renders a preview", async (t) => {
   assert.match(resourcesData.html, /Ir a Lifelong Learning/);
   assert.match(resourcesData.html, /https:\/\/example\.com\/recursos/);
   assert.match(resourcesData.html, /https:\/\/example\.com\/recurso1\.jpg/);
-  assert.match(resourcesData.html, /padding:4px 16px 0;background:#ffffff/);
+  assert.match(resourcesData.html, /padding:4px 16px 28px;background:#ffffff/);
   assert.match(resourcesData.html, /object-fit:contain/);
   assert.match(resourcesData.html, /font-size:18px/);
   assert.match(resourcesData.html, /font-family:Arial,Helvetica,sans-serif/);
