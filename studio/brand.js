@@ -526,61 +526,68 @@ ${legalRow(language)}
   return { html, text };
 }
 
+// Each error and warning has a matching entry in `targets` saying where it can
+// be fixed: { field: "subject" | "preheader" }, { moduleId, field } or
+// { addModule: type } when a required module is missing.
 export function validateDraft(draft) {
   const errors = [];
   const warnings = [];
+  const targets = { errors: [], warnings: [] };
   const es = draft.language !== "en";
   const say = (esText, enText) => (es ? esText : enText);
-  if (!draft.subject?.trim()) errors.push(say("Falta el asunto del email.", "The subject is missing."));
-  if ((draft.subject || "").length > 70) warnings.push(say("El asunto tiene más de 70 caracteres y puede cortarse.", "The subject is over 70 characters and may be cut off."));
-  if (!draft.preheader?.trim()) warnings.push(say("Añade un texto de vista previa (preheader).", "Add a preview text (preheader)."));
+  const error = (text, target = null) => { errors.push(text); targets.errors.push(target); };
+  const warn = (text, target = null) => { warnings.push(text); targets.warnings.push(target); };
+  if (!draft.subject?.trim()) error(say("Falta el asunto del email.", "The subject is missing."), { field: "subject" });
+  if ((draft.subject || "").length > 70) warn(say("El asunto tiene más de 70 caracteres y puede cortarse.", "The subject is over 70 characters and may be cut off."), { field: "subject" });
+  if (!draft.preheader?.trim()) warn(say("Añade un texto de vista previa (preheader).", "Add a preview text (preheader)."), { field: "preheader" });
   const template = TEMPLATES[draft.template];
   const modules = draft.modules || [];
   for (const type of template?.required || []) {
-    if (!modules.some((m) => m.type === type)) errors.push(say(`Falta el módulo «${MODULES[type].label.es}».`, `The "${MODULES[type].label.en}" module is missing.`));
+    if (!modules.some((m) => m.type === type)) error(say(`Falta el módulo «${MODULES[type].label.es}».`, `The "${MODULES[type].label.en}" module is missing.`), { addModule: type });
   }
   modules.forEach((m, index) => {
     const name = `${MODULES[m.type]?.label[es ? "es" : "en"] || m.type} (${index + 1})`;
-    const checkImage = (value, label) => {
-      if (isLocalUpload(value)) warnings.push(say(`${name}: la imagen solo está guardada en esta app (modo simulación). En modo real se sube a Pardot.`, `${name}: the image is only stored in this app (simulation mode). In live mode it is uploaded to Pardot.`));
-      else checkUrl(value, label);
+    const at = (field) => ({ moduleId: m.id, field });
+    const checkUrl = (value, label, field) => {
+      if (value && !safeUrl(value)) error(say(`${name}: ${label} debe ser un enlace https válido.`, `${name}: ${label} must be a valid https link.`), at(field));
     };
-    const checkUrl = (value, label) => {
-      if (value && !safeUrl(value)) errors.push(say(`${name}: ${label} debe ser un enlace https válido.`, `${name}: ${label} must be a valid https link.`));
+    const checkImage = (value, label, field) => {
+      if (isLocalUpload(value)) warn(say(`${name}: la imagen solo está guardada en esta app (modo simulación). En modo real se sube a Pardot.`, `${name}: the image is only stored in this app (simulation mode). In live mode it is uploaded to Pardot.`), at(field));
+      else checkUrl(value, label, field);
     };
     if (m.type === "hero") {
-      if (!m.imageUrl) warnings.push(say(`${name}: falta la imagen.`, `${name}: the image is missing.`));
-      if (m.imageUrl?.startsWith("data:")) errors.push(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`));
-      else checkImage(m.imageUrl, say("la imagen", "the image"));
-      if (m.ctaLabel && !m.ctaUrl) errors.push(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`));
-      checkUrl(m.ctaUrl, say("el enlace del botón", "the button link"));
+      if (!m.imageUrl) warn(say(`${name}: falta la imagen.`, `${name}: the image is missing.`), at("imageUrl"));
+      if (m.imageUrl?.startsWith("data:")) error(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`), at("imageUrl"));
+      else checkImage(m.imageUrl, say("la imagen", "the image"), "imageUrl");
+      if (m.ctaLabel && !m.ctaUrl) error(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`), at("ctaUrl"));
+      checkUrl(m.ctaUrl, say("el enlace del botón", "the button link"), "ctaUrl");
     }
     if (m.type === "cta") {
-      if (!m.url) errors.push(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`));
-      checkUrl(m.url, say("el enlace", "the link"));
+      if (!m.url) error(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`), at("url"));
+      checkUrl(m.url, say("el enlace", "the link"), "url");
     }
     if (m.type === "event") {
-      if (!m.date) errors.push(say(`${name}: falta la fecha.`, `${name}: the date is missing.`));
-      else if (!isIsoDate(m.date)) errors.push(say(`${name}: la fecha no es válida.`, `${name}: the date is not valid.`));
-      if (m.endDate && (!isIsoDate(m.endDate) || m.endDate < m.date)) warnings.push(say(`${name}: la fecha de fin es anterior a la de inicio o no es válida, así que no se muestra. Corrígela o quítala.`, `${name}: the end date is before the start date or not valid, so it is not shown. Fix it or remove it.`));
-      if (m.startTime && !isClock(m.startTime)) errors.push(say(`${name}: la hora de inicio no es válida.`, `${name}: the start time is not valid.`));
-      if (!m.venue && !m.address) warnings.push(say(`${name}: falta el lugar.`, `${name}: the venue is missing.`));
+      if (!m.date) error(say(`${name}: falta la fecha.`, `${name}: the date is missing.`), at("date"));
+      else if (!isIsoDate(m.date)) error(say(`${name}: la fecha no es válida.`, `${name}: the date is not valid.`), at("date"));
+      if (m.endDate && (!isIsoDate(m.endDate) || m.endDate < m.date)) warn(say(`${name}: la fecha de fin es anterior a la de inicio o no es válida, así que no se muestra. Corrígela o quítala.`, `${name}: the end date is before the start date or not valid, so it is not shown. Fix it or remove it.`), at("endDate"));
+      if (m.startTime && !isClock(m.startTime)) error(say(`${name}: la hora de inicio no es válida.`, `${name}: the start time is not valid.`), at("startTime"));
+      if (!m.venue && !m.address) warn(say(`${name}: falta el lugar.`, `${name}: the venue is missing.`), at("venue"));
     }
     if (m.type === "image") {
-      if (m.imageUrl?.startsWith("data:")) errors.push(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`));
-      else checkImage(m.imageUrl, say("la imagen", "the image"));
-      if (m.imageUrl && !m.imageAlt) warnings.push(say(`${name}: describe la imagen para quien no pueda verla.`, `${name}: describe the image for people who cannot see it.`));
-      checkUrl(m.url, say("el enlace", "the link"));
+      if (m.imageUrl?.startsWith("data:")) error(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`), at("imageUrl"));
+      else checkImage(m.imageUrl, say("la imagen", "the image"), "imageUrl");
+      if (m.imageUrl && !m.imageAlt) warn(say(`${name}: describe la imagen para quien no pueda verla.`, `${name}: describe the image for people who cannot see it.`), at("imageAlt"));
+      checkUrl(m.url, say("el enlace", "the link"), "url");
     }
     if (m.type === "events") {
-      (m.items || []).forEach((item) => checkUrl(item.url, say("un enlace de evento", "an event link")));
-      checkUrl(m.allUrl, say("el enlace final", "the final link"));
+      (m.items || []).forEach((item, i) => checkUrl(item.url, say("un enlace de evento", "an event link"), `items.${i}.url`));
+      checkUrl(m.allUrl, say("el enlace final", "the final link"), "allUrl");
     }
     if (m.type === "custom") {
       const { problems } = sanitizeCustomHtml(m.html, { report: true });
-      if (problems.length) warnings.push(say(`${name}: se ha quitado lo que no cumple el marco de marca (${problems.slice(0, 4).join(", ")}).`, `${name}: anything outside the brand framework was removed (${problems.slice(0, 4).join(", ")}).`));
+      if (problems.length) warn(say(`${name}: se ha quitado lo que no cumple el marco de marca (${problems.slice(0, 4).join(", ")}).`, `${name}: anything outside the brand framework was removed (${problems.slice(0, 4).join(", ")}).`), at(""));
     }
-    if (m.type === "text" && /[A-ZÁÉÍÓÚÑ]{12,}/.test(m.body || "")) warnings.push(say(`${name}: evita frases enteras en mayúsculas (guía de estilo).`, `${name}: avoid all caps (style guide).`));
+    if (m.type === "text" && /[A-ZÁÉÍÓÚÑ]{12,}/.test(m.body || "")) warn(say(`${name}: evita frases enteras en mayúsculas (guía de estilo).`, `${name}: avoid all caps (style guide).`), at("body"));
   });
-  return { errors, warnings };
+  return { errors, warnings, targets };
 }

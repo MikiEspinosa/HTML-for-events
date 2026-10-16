@@ -1138,9 +1138,55 @@ function renderEditor() {
     renderEditor();
   };
   $('[data-act="logo"]').onclick = () => { d.hideLogo = !d.hideLogo; touch(); renderEditor(); };
+  if (S.focus) {
+    const { id, addType } = S.focus;
+    S.focus = null;
+    if (addType && $("#add-type")) { $("#add-type").value = addType; flash($("#add-type").closest(".row")); $("#add-type").focus(); }
+    const el = id && document.getElementById(id);
+    if (el) {
+      const rich = el.parentElement.querySelector(`[data-rich="${id}"]`);
+      const shown = rich ? rich.querySelector(".rich-area") : el;
+      flash(shown.closest(".field") || shown);
+      shown.focus({ preventScroll: true });
+    }
+  }
   $('[data-act="back"]').onclick = () => go(`#/d/${d.id}/questions/0`);
   $('[data-act="review"]').onclick = () => go(`#/d/${d.id}/review`);
   bindPreviewPane();
+}
+
+function flash(el) {
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+
+// Takes the user from a review message to the place where it is fixed.
+async function goToFix(target) {
+  const d = S.draft;
+  if (!target) return;
+  if (target.field === "subject" || target.field === "preheader") {
+    const el = $(`#${target.field}`);
+    flash(el.closest(".field"));
+    return el.focus({ preventScroll: true });
+  }
+  if (target.moduleId && getModule(target.moduleId)) {
+    S.selected = target.moduleId;
+    S.focus = { id: target.field ? `f-${target.moduleId}-${target.field.replaceAll(".", "-")}` : null };
+    await flush();
+    return go(`#/d/${d.id}/editor`);
+  }
+  if (target.addModule) {
+    const addable = S.config.templates[d.template].addable || [];
+    if (!addable.includes(target.addModule) && d.template === "invite") {
+      const index = inviteQuestions().findIndex((q) => q.type === target.addModule || (q.key === "message" && ["heading", "text"].includes(target.addModule)));
+      if (index >= 0) return go(`#/d/${d.id}/questions/${index}`);
+    }
+    S.focus = { addType: target.addModule };
+    return go(`#/d/${d.id}/editor`);
+  }
 }
 
 // Review and Pardot.
@@ -1174,7 +1220,17 @@ function renderReview() {
   const drawChecks = () => {
     const v = S.preview?.validation;
     if (!v) return;
-    $("#checks").innerHTML = [...v.errors.map((x) => `<li class="err">✕ ${esc(x)}</li>`), ...v.warnings.map((x) => `<li class="warn">! ${esc(x)}</li>`)].join("") || '<li class="ok">✓ Todo listo para Pardot.</li>';
+    const item = (kind, text, target, i) => target
+      ? `<li class="${kind}"><button type="button" class="check-link" data-check="${kind}|${i}" title="Ir a corregirlo">${kind === "err" ? "✕" : "!"} ${esc(text)}<span class="go">Corregir →</span></button></li>`
+      : `<li class="${kind}">${kind === "err" ? "✕" : "!"} ${esc(text)}</li>`;
+    $("#checks").innerHTML = [
+      ...v.errors.map((x, i) => item("err", x, v.targets?.errors?.[i], i)),
+      ...v.warnings.map((x, i) => item("warn", x, v.targets?.warnings?.[i], i)),
+    ].join("") || '<li class="ok">✓ Todo listo para Pardot.</li>';
+    $$("[data-check]").forEach((b) => b.onclick = () => {
+      const [kind, i] = b.dataset.check.split("|");
+      goToFix(v.targets[kind === "err" ? "errors" : "warnings"][Number(i)]);
+    });
   };
   S.onPreview = drawChecks;
   $('[data-act="back"]').onclick = () => go(`#/d/${d.id}/editor`);

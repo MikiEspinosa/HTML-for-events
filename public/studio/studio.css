@@ -212,3 +212,11 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .field > label { font-weight: bold; font-size: 14px; }
 .with-clear { display: flex; gap: 6px; align-items: center; }
 .with-clear input { flex: 1; }
+
+/* Review messages that lead to the fix */
+.checklist li:has(> .check-link) { padding: 0; }
+.check-link { display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 10px 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
+.check-link:hover { box-shadow: inset 0 0 0 2px currentColor; }
+.check-link .go { margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: bold; text-decoration: underline; }
+.flash { animation: flash 1.6s ease-out; border-radius: 8px; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 4px var(--red); } 100% { box-shadow: 0 0 0 4px transparent; } }

@@ -95,6 +95,11 @@ test("validation blocks missing required data and bad links", () => {
   assert.ok(errors.some((e) => /asunto/.test(e)));
   assert.ok(errors.some((e) => /https/.test(e)));
   assert.ok(errors.some((e) => /Título/.test(e)));
+  const { targets } = validateDraft(draft);
+  assert.equal(targets.errors.length, errors.length, "every message says where to fix it");
+  assert.deepEqual(targets.errors[errors.findIndex((e) => /asunto/.test(e))], { field: "subject" });
+  assert.deepEqual(targets.errors[errors.findIndex((e) => /https/.test(e))], { moduleId: "mcta000001", field: "url" });
+  assert.deepEqual(targets.errors[errors.findIndex((e) => /Título/.test(e))], { addModule: "heading" });
   assert.deepEqual(validateDraft(sampleDraft()).errors, []);
   const early = sampleDraft();
   early.modules[3].endDate = "2026-10-01";
