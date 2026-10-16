@@ -41,7 +41,7 @@ export function formatDate(value, language, { weekday = false, year = true } = {
 
 export function formatDateRange(start, end, language) {
   if (!isIsoDate(start)) return "";
-  if (!isIsoDate(end) || end === start) return formatDate(start, language, { weekday: true });
+  if (!isIsoDate(end) || end <= start) return formatDate(start, language, { weekday: true });
   const a = parts(start);
   const b = parts(end);
   if (language === "en") {

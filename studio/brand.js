@@ -48,9 +48,9 @@ export const MODULES = {
     label: { es: "Datos del evento", en: "Event details" },
     fields: [
       { key: "date", kind: "date", label: { es: "Fecha", en: "Date" } },
-      { key: "endDate", kind: "date", label: { es: "Fecha de fin (opcional)", en: "End date (optional)" } },
+      { key: "endDate", kind: "date", optional: true, label: { es: "Fecha de fin (opcional)", en: "End date (optional)" } },
       { key: "startTime", kind: "time", label: { es: "Hora de inicio", en: "Start time" } },
-      { key: "endTime", kind: "time", label: { es: "Hora de fin", en: "End time" } },
+      { key: "endTime", kind: "time", optional: true, label: { es: "Hora de fin (opcional)", en: "End time (optional)" } },
       { key: "venue", kind: "text", label: { es: "Lugar", en: "Venue" } },
       { key: "address", kind: "text", label: { es: "Dirección o formato", en: "Address or format" } },
     ],
@@ -562,7 +562,7 @@ export function validateDraft(draft) {
     if (m.type === "event") {
       if (!m.date) errors.push(say(`${name}: falta la fecha.`, `${name}: the date is missing.`));
       else if (!isIsoDate(m.date)) errors.push(say(`${name}: la fecha no es válida.`, `${name}: the date is not valid.`));
-      if (m.endDate && (!isIsoDate(m.endDate) || m.endDate < m.date)) errors.push(say(`${name}: la fecha de fin no es válida.`, `${name}: the end date is not valid.`));
+      if (m.endDate && (!isIsoDate(m.endDate) || m.endDate < m.date)) warnings.push(say(`${name}: la fecha de fin es anterior a la de inicio o no es válida, así que no se muestra. Corrígela o quítala.`, `${name}: the end date is before the start date or not valid, so it is not shown. Fix it or remove it.`));
       if (m.startTime && !isClock(m.startTime)) errors.push(say(`${name}: la hora de inicio no es válida.`, `${name}: the start time is not valid.`));
       if (!m.venue && !m.address) warnings.push(say(`${name}: falta el lugar.`, `${name}: the venue is missing.`));
     }

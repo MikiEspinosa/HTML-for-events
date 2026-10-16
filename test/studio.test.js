@@ -96,6 +96,11 @@ test("validation blocks missing required data and bad links", () => {
   assert.ok(errors.some((e) => /https/.test(e)));
   assert.ok(errors.some((e) => /Título/.test(e)));
   assert.deepEqual(validateDraft(sampleDraft()).errors, []);
+  const early = sampleDraft();
+  early.modules[3].endDate = "2026-10-01";
+  assert.deepEqual(validateDraft(early).errors, [], "a wrong end date only warns");
+  assert.ok(validateDraft(early).warnings.some((w) => /fecha de fin/.test(w)));
+  assert.match(renderEmail(early).html, /jueves, 8 de octubre del 2026/, "an end date before the start is ignored");
 });
 
 test("collectTexts and applyTexts round-trip editorial text", () => {

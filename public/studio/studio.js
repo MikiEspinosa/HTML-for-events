@@ -583,9 +583,11 @@ function fieldHtml(module, field, path = field.key, value = module[field.key]) {
         <label class="drop" data-drop="${id}">Arrastra una imagen o <u>súbela desde tu ordenador</u><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-upload="${id}"></label>
         <small>Puedes pegar la URL pública de la biblioteca de apply.iese.edu o de los archivos de Pardot.</small></div>`;
     case "date":
-      return `<label class="field">${label}<input type="date" ${attrs} value="${esc(value)}"></label>`;
-    case "time":
-      return `<label class="field">${label}<input type="time" ${attrs} value="${esc(value)}"></label>`;
+    case "time": {
+      const input = `<input type="${field.kind}" ${attrs} value="${esc(value)}">`;
+      if (!field.optional) return `<label class="field">${label}${input}</label>`;
+      return `<div class="field"><label for="${id}">${label}</label><div class="with-clear">${input}<button type="button" class="btn small" data-clear="${id}" ${value ? "" : "disabled"}>Quitar</button></div></div>`;
+    }
     case "url":
       return `<label class="field">${label}<input type="url" ${attrs} value="${esc(value)}" placeholder="https://…"></label>`;
     case "list": {
@@ -637,6 +639,11 @@ function bindFields(root, onStructure) {
     }
   });
   $$("[data-chat]", root).forEach((b) => b.onclick = (e) => { e.preventDefault(); openChat(b); });
+  $$("[data-clear]", root).forEach((b) => {
+    const input = document.getElementById(b.dataset.clear);
+    input.addEventListener("input", () => { b.disabled = !input.value; });
+    b.onclick = () => { input.value = ""; input.dispatchEvent(new Event("input", { bubbles: true })); };
+  });
   $$("[data-list-add]", root).forEach((b) => b.onclick = () => {
     const [id, key] = b.dataset.listAdd.split("|");
     const m = getModule(id);
@@ -1150,9 +1157,9 @@ function renderReview() {
       <label class="field"><span>Asunto</span><input id="subject" value="${esc(d.subject)}"></label>
       <label class="field"><span>Texto de vista previa</span><input id="preheader" value="${esc(d.preheader)}"></label>
       <label class="field"><span>Nombre de la plantilla en Pardot</span><input id="name" value="${esc(d.name)}"></label>
-      <div class="grid2"><label class="field"><span>Campaña (ID)</span><input id="campaign" inputmode="numeric" value="${esc(d.pardot.campaignId)}"></label>
-        <label class="field"><span>Carpeta (ID)</span><input id="folder" inputmode="numeric" value="${esc(d.pardot.folderId)}"></label></div>
-      <small class="hint">Vienen fijadas para Alumni; cámbialas solo si hace falta.</small>
+      <div class="grid2"><label class="field"><span>ID de campaña (opcional)</span><input id="campaign" inputmode="numeric" value="${esc(d.pardot.campaignId)}"></label>
+        <label class="field"><span>ID de carpeta (opcional)</span><input id="folder" inputmode="numeric" value="${esc(d.pardot.folderId)}"></label></div>
+      <small class="hint">Si los dejas vacíos se usan la campaña y la carpeta fijas de Alumni configuradas en la app.</small>
       <div class="actions"><span class="row"><button class="btn ghost" data-act="back">← Editor</button><button class="btn" data-act="download">Descargar HTML</button>
         ${S.config.ai ? `<button class="btn" data-act="translate">Crear versión en ${other}</button>` : ""}</span>
         <button class="btn primary" data-act="publish">Crear plantilla en Pardot</button></div>
