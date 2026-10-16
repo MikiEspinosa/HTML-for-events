@@ -60,6 +60,8 @@ test("rendered emails use the brand red, the Alumni logo and the fixed parts", (
   assert.match(html, /8 de octubre del 2026/);
   assert.match(text, /Fecha: jueves, 8 de octubre del 2026/);
   assert.match(renderEmail(sampleDraft(), { preview: true }).html, /data-module-id="mhero00001"/);
+  const noLogo = renderEmail({ ...sampleDraft(), hideLogo: true }, { assets: { logoUrl: "https://app.example/brand/iese-alumni.png", footerLogoUrl: "https://x/iese.png", icons: {}, quickLinks: {} } }).html;
+  assert.doesNotMatch(noLogo, /iese-alumni\.png/, "the Alumni logo at the top can be removed");
 });
 
 test("images uploaded in simulation mode show in the preview and only warn", () => {
@@ -203,6 +205,9 @@ test("the API creates, saves, translates and publishes a draft", async (t) => {
   const saved = await call(`drafts/${draft.id}`, "PUT", { version: draft.version, subject: "Vuelve", preheader: "Te esperamos", modules: [...filled, { id: "x", type: "evil", html: "<script>" }] });
   assert.equal(saved.status, 200);
   assert.equal(saved.body.draft.modules.length, filled.length, "unknown modules are dropped");
+  const hidden = await call(`drafts/${draft.id}`, "PUT", { version: saved.body.draft.version, hideLogo: true });
+  assert.equal(hidden.body.draft.hideLogo, true);
+  saved.body.draft.version = hidden.body.draft.version;
   assert.equal((await call(`drafts/${draft.id}`, "PUT", { version: 1, subject: "viejo" })).status, 409);
 
   const other = await call(`drafts/${draft.id}`, "GET", undefined, { "x-ms-client-principal-name": "otra@iese.edu" });

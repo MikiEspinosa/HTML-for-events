@@ -68,6 +68,7 @@ function cleanDraftFields(input, current = {}) {
   for (const key of ["name", "subject", "preheader", "brief", "step"]) {
     if (input[key] !== undefined) fields[key] = String(input[key] ?? "").slice(0, key === "brief" ? 20000 : 300);
   }
+  if (input.hideLogo !== undefined) fields.hideLogo = input.hideLogo === true;
   if (input.modules !== undefined) fields.modules = cleanModules(input.modules, language);
   if (input.source !== undefined && input.source && typeof input.source === "object") fields.source = JSON.parse(JSON.stringify(input.source).slice(0, 60000));
   if (input.pardot && typeof input.pardot === "object") {
@@ -310,6 +311,7 @@ export function createStudioHandler(deps, env = process.env) {
         language: LANGUAGES.includes(body.language) ? body.language : "es",
         subject: String(body.subject || ""),
         preheader: String(body.preheader || ""),
+        hideLogo: body.hideLogo === true,
         modules: cleanModules(body.modules, body.language),
       };
       return send(response, 200, { ...renderEmail(draft, { assets: assetsFor(request, env), preview: true }), validation: validateDraft(draft) });

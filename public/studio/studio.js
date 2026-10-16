@@ -415,7 +415,7 @@ async function save() {
   const d = S.draft;
   S.saving = api(`drafts/${d.id}`, {
     method: "PUT",
-    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, modules: d.modules, source: d.source, pardot: d.pardot },
+    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, hideLogo: Boolean(d.hideLogo), modules: d.modules, source: d.source, pardot: d.pardot },
   })
     .then(({ draft }) => {
       S.draft.version = draft.version;
@@ -512,7 +512,7 @@ async function refreshPreview() {
   if (!frame || !S.draft) return;
   try {
     const d = S.draft;
-    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, modules: d.modules } });
+    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), modules: d.modules } });
     const selectedCss = S.selected && document.body.dataset.step !== "review" ? `[data-module-id="${S.selected}"]>td{outline:3px solid #FF2800;outline-offset:-3px}` : "";
     const clickable = document.body.dataset.step === "editor";
     const script = clickable
@@ -1048,7 +1048,7 @@ function renderDescribe() {
       ${S.config.ai ? '<button class="btn primary" data-act="plan">✨ Diseñar la estructura</button>' : '<p class="hint">La IA no está activa en este entorno.</p>'}
       <div id="plan" style="margin-top:20px"></div>
     </div>
-    <div class="panel"><h2>Siempre incluido</h2><p class="hint">El logo de IESE Alumni arriba, los accesos rápidos, el pie de marca y el texto legal se añaden solos. Los colores, la tipografía y los botones siguen la marca.</p></div></div>`;
+    <div class="panel"><h2>Se añade solo</h2><p class="hint">El logo de IESE Alumni arriba, los accesos rápidos, el pie de marca y el texto legal se añaden solos. El logo de arriba lo puedes quitar después en el editor. Los colores, la tipografía y los botones siguen la marca.</p></div></div>`;
   const ta = $("#describe");
   attachMic(ta);
   ta.oninput = () => { d.brief = ta.value; touch({ preview: false }); };
@@ -1103,7 +1103,8 @@ function renderEditor() {
   const options = (tpl.addable || []).map((k) => `<option value="${k}">${esc(t(S.config.modules[k].label))}</option>`).join("");
   app.innerHTML = `<div class="split"><div class="panel">
       <h2>Editor</h2><p class="hint">Pulsa sobre cualquier parte del email para cambiarla.</p>
-      <ul class="modules"><li><span class="fixed">Logo IESE Alumni (fijo)</span></li>
+      <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="name fixed-name">Logo IESE Alumni${d.hideLogo ? " (quitado)" : ""}</span>
+          <button class="${d.hideLogo ? "btn small" : "icon-btn"}" data-act="logo" aria-label="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}" title="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}">${d.hideLogo ? "Volver a poner" : "✕"}</button></li>
         ${d.modules.map((m, i) => `<li class="${m.id === S.selected ? "selected" : ""}"><button class="name" data-sel="${m.id}">${esc(t(S.config.modules[m.type].label))}</button>
           <button class="icon-btn" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
           <button class="icon-btn" data-mv="${i}|1" ${i === d.modules.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
@@ -1129,6 +1130,7 @@ function renderEditor() {
     touch();
     renderEditor();
   };
+  $('[data-act="logo"]').onclick = () => { d.hideLogo = !d.hideLogo; touch(); renderEditor(); };
   $('[data-act="back"]').onclick = () => go(`#/d/${d.id}/questions/0`);
   $('[data-act="review"]').onclick = () => go(`#/d/${d.id}/review`);
   bindPreviewPane();

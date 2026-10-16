@@ -197,3 +197,5 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .chat-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px 0; }
 .chat-form { display: flex; gap: 8px; align-items: flex-end; padding: 10px 14px 14px; }
 .chat-form textarea { flex: 1; resize: none; border: 1px solid #CFCFCF; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.modules li .fixed-name { flex: 1; padding: 6px; font-size: 14px; }
+.modules li.off .fixed-name { color: var(--grey); text-decoration: line-through; }

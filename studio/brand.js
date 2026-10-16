@@ -508,7 +508,7 @@ export function renderEmail(draft, { assets = defaultAssets(), preview = false }
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EFEFEF;">
 <tr><td align="center" style="padding:0;">
 <table role="presentation" class="wrap" width="${BRAND.width}" cellpadding="0" cellspacing="0" border="0" style="width:${BRAND.width}px;max-width:100%;background:${BRAND.white};">
-<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="IESE Alumni" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>
+${draft.hideLogo ? "" : `<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="IESE Alumni" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>`}
 ${body}
 ${quickLinksRow(language, assets)}
 ${brandFooterRow(assets)}
