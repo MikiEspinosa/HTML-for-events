@@ -97,6 +97,24 @@ export function createAi({ getClient, buildRequest, extractText }) {
       return (await ask(instructions, { text, context })).trim();
     },
 
+    // Chat attached to one text field: writes new text or edits the current one.
+    async chatField({ language, field, multiline, text, messages, context, examples }) {
+      const instructions = [
+        `You are the writing assistant of the IESE Alumni email studio. You work on one field of an email in ${LANGUAGE_NAME[language]}: "${field}".`,
+        "The user chats with you to get new text for that field or to change the text it already has (tone, person, length, focus...). Apply each request to the current text unless the user asks for something new.",
+        multiline
+          ? "The field is a body text: use short paragraphs separated by a blank line. You may use **bold**, *italic*, [label](https://url) and lists with lines starting with \"- \". No greeting, no sign-off and no button text unless asked."
+          : "The field is a single line: return one line, with no markup and no line breaks.",
+        "Use the facts in the email context. Never invent dates, times, places, prices, names or links. Keep links and fields like {{Recipient.FirstName}} exactly.",
+        "Return JSON {reply, text}. reply is one short sentence for the user, in the language the user writes in, saying what you did or asking what you need. text is the complete new text for the field, written in the email language, or an empty string when you only answer or need more information.",
+        rulesFor(language),
+      ].join("\n") + examplesBlock(examples);
+      const result = await askJson(instructions, { currentText: text, emailContext: context, conversation: messages });
+      let next = typeof result?.text === "string" ? result.text.trim() : "";
+      if (!multiline) next = next.replace(/\s*\n+\s*/g, " ");
+      return { reply: String(result?.reply || "").trim(), text: next };
+    },
+
     async structureAgenda({ language, text }) {
       const instructions = [
         "Turn this agenda, written or dictated freely, into a list of agenda items.",

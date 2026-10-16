@@ -182,8 +182,6 @@ export const QUICK_LINKS = [
   { key: "web", label: { es: "Web de Alumni", en: "Alumni website" } },
 ];
 
-export const TAGLINE = [["A Way to", "Learn"], ["A Mark", "to Make"], ["A World", "to Change"]];
-
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -206,10 +204,22 @@ export function safeUrl(value) {
   }
 }
 
+// Images uploaded in simulation mode live in this app under /studio-uploads/,
+// which may be served over plain http (for example on localhost).
+export function isLocalUpload(value) {
+  try {
+    const url = new URL(String(value ?? "").trim());
+    return /^https?:$/.test(url.protocol) && !url.username && !url.password && /^\/studio-uploads\/[a-f0-9-]{36}\.(png|jpg|gif|webp)$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 // Images may also be data: URLs in the preview before they are uploaded.
 function imageSrc(value, { preview }) {
   const raw = String(value ?? "").trim();
   if (preview && /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(raw)) return raw;
+  if (isLocalUpload(raw)) return new URL(raw).href;
   return safeUrl(raw);
 }
 
@@ -268,7 +278,7 @@ const renderers = {
     const src = imageSrc(m.imageUrl, ctx);
     const title = escapeHtml(m.title);
     const subtitle = escapeHtml(m.subtitle);
-    const overlay = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:rgba(0,0,0,0.6);background-color:#333333;padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.red}" style="background:${BRAND.red};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}${m.ctaLabel ? `<div style="height:20px;line-height:20px;font-size:1px;">&nbsp;</div>${button(m.ctaLabel, m.ctaUrl, { align: "left" })}` : ""}`;
+    const overlay = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#333333;background:rgba(0,0,0,0.45);padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.red}" style="background:${BRAND.red};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}${m.ctaLabel ? `<div style="height:20px;line-height:20px;font-size:1px;">&nbsp;</div>${button(m.ctaLabel, m.ctaUrl, { align: "left" })}` : ""}`;
     if (!src) {
       return row(`<div style="background:${BRAND.black};padding:32px;">${overlay}</div>`, { padding: "0", id: m.id, type: "hero" });
     }
@@ -459,8 +469,7 @@ function quickLinksRow(language, assets) {
 }
 
 function brandFooterRow(assets) {
-  const tag = TAGLINE.map(([a, b]) => `<td valign="middle" style="padding:0 0 0 14px;font-family:${BRAND.font};font-size:14px;line-height:1.15;font-weight:bold;color:${BRAND.white};white-space:nowrap;">${escapeHtml(a)}<br><span style="background:${BRAND.white};color:${BRAND.black};padding:0 3px;">${escapeHtml(b)}</span></td>`).join("");
-  return `<tr><td bgcolor="${BRAND.red}" style="padding:22px 24px;background:${BRAND.red};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td valign="middle" width="130"><img src="${escapeHtml(assets.footerLogoUrl)}" width="110" alt="IESE" style="display:block;width:110px;height:auto;border:0;"></td><td align="right" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right"><tr>${tag}</tr></table></td></tr></table></td></tr>`;
+  return `<tr><td bgcolor="${BRAND.red}" style="padding:22px 24px;background:${BRAND.red};"><img src="${escapeHtml(assets.footerLogoUrl)}" width="110" alt="IESE" style="display:block;width:110px;height:auto;border:0;"></td></tr>`;
 }
 
 function legalRow(language) {
@@ -532,13 +541,17 @@ export function validateDraft(draft) {
   }
   modules.forEach((m, index) => {
     const name = `${MODULES[m.type]?.label[es ? "es" : "en"] || m.type} (${index + 1})`;
+    const checkImage = (value, label) => {
+      if (isLocalUpload(value)) warnings.push(say(`${name}: la imagen solo está guardada en esta app (modo simulación). En modo real se sube a Pardot.`, `${name}: the image is only stored in this app (simulation mode). In live mode it is uploaded to Pardot.`));
+      else checkUrl(value, label);
+    };
     const checkUrl = (value, label) => {
       if (value && !safeUrl(value)) errors.push(say(`${name}: ${label} debe ser un enlace https válido.`, `${name}: ${label} must be a valid https link.`));
     };
     if (m.type === "hero") {
       if (!m.imageUrl) warnings.push(say(`${name}: falta la imagen.`, `${name}: the image is missing.`));
       if (m.imageUrl?.startsWith("data:")) errors.push(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`));
-      else checkUrl(m.imageUrl, say("la imagen", "the image"));
+      else checkImage(m.imageUrl, say("la imagen", "the image"));
       if (m.ctaLabel && !m.ctaUrl) errors.push(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`));
       checkUrl(m.ctaUrl, say("el enlace del botón", "the button link"));
     }
@@ -555,7 +568,7 @@ export function validateDraft(draft) {
     }
     if (m.type === "image") {
       if (m.imageUrl?.startsWith("data:")) errors.push(say(`${name}: la imagen todavía no está subida a una URL pública.`, `${name}: the image is not uploaded to a public URL yet.`));
-      else checkUrl(m.imageUrl, say("la imagen", "the image"));
+      else checkImage(m.imageUrl, say("la imagen", "the image"));
       if (m.imageUrl && !m.imageAlt) warnings.push(say(`${name}: describe la imagen para quien no pueda verla.`, `${name}: describe the image for people who cannot see it.`));
       checkUrl(m.url, say("el enlace", "the link"));
     }

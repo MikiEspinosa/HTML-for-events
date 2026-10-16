@@ -348,6 +348,24 @@ export function createStudioHandler(deps, env = process.env) {
           return send(response, 200, await ai.writeInvitation({ language, facts: body.facts || {}, notes: String(body.notes || "").slice(0, 20000), examples: await examplesFor(draftLike) }));
         case "rewrite":
           return send(response, 200, { text: await ai.rewrite({ language, action: body.action, text: String(body.text || "").slice(0, 20000), context: body.context || "", examples: await examplesFor(draftLike) }) });
+        case "chat": {
+          const messages = (Array.isArray(body.messages) ? body.messages : []).slice(-12)
+            .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+            .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+          if (messages.at(-1)?.role !== "user") throw new HttpError("Escribe primero qué quieres que haga la IA.");
+          const draft = { subject: String(body.subject || "").slice(0, 300), modules: cleanModules(body.modules, language) };
+          const facts = body.facts && typeof body.facts === "object" && JSON.stringify(body.facts).length <= 4000 ? body.facts : {};
+          const context = { facts, texts: collectTexts(draft) };
+          return send(response, 200, await ai.chatField({
+            language,
+            field: String(body.field || "Texto").slice(0, 200),
+            multiline: body.multiline === true,
+            text: String(body.text || "").slice(0, 20000),
+            messages,
+            context,
+            examples: await examplesFor(draftLike),
+          }));
+        }
         case "agenda":
           return send(response, 200, { items: await ai.structureAgenda({ language, text: String(body.text || "").slice(0, 10000) }) });
         case "subjects":

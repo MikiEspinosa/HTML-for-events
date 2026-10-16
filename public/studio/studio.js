@@ -87,10 +87,8 @@ function confirmDialog({ title, text, yes = "Sí", no = "No", cancel = false }) 
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function attachMic(textarea) {
-  if (!Recognition) return;
-  const wrap = textarea.parentElement;
-  wrap.classList.add("with-mic");
+// Appends what is dictated to the end of a textarea's value.
+function micButton(textarea) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "mic";
@@ -115,7 +113,281 @@ function attachMic(textarea) {
     rec.start();
     button.classList.add("on");
   };
-  wrap.append(button);
+  return button;
+}
+
+function attachMic(textarea) {
+  if (!Recognition) return;
+  const wrap = textarea.parentElement;
+  wrap.classList.add("with-mic");
+  wrap.append(micButton(textarea));
+}
+
+// ---------- rich text ----------
+// Long texts are stored as light markup (**bold**, *italic*, [label](url),
+// "- " lists, blank line between paragraphs), which the renderer, the AI and
+// the translation already understand. The editor shows it formatted.
+
+function mdInline(text) {
+  return esc(text)
+    .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, label, href) => `<a href="${href}">${label}</a>`)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>");
+}
+
+function mdToHtml(md) {
+  const blocks = String(md ?? "").replace(/\r\n/g, "\n").trim().split(/\n{2,}/).filter((b) => b.trim());
+  if (!blocks.length) return "<p><br></p>";
+  return blocks.map((block) => {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.every((l) => /^[-•]\s+/.test(l))) return `<ul>${lines.map((l) => `<li>${mdInline(l.replace(/^[-•]\s+/, ""))}</li>`).join("")}</ul>`;
+    return `<p>${lines.map(mdInline).join("<br>")}</p>`;
+  }).join("");
+}
+
+function htmlToMd(root) {
+  const blocks = [];
+  let current = "";
+  const flush = () => {
+    const text = current.split("\n").map((l) => l.trim()).join("\n").replace(/^\n+|\n+$/g, "");
+    if (text.trim()) blocks.push(text);
+    current = "";
+  };
+  const inline = (node) => {
+    if (node.nodeType === 3) return node.nodeValue.replace(/ /g, " ").replace(/\n/g, " ");
+    if (node.nodeType !== 1) return "";
+    const tag = node.tagName;
+    if (tag === "BR") return "\n";
+    const inner = [...node.childNodes].map(inline).join("");
+    const wrap = (mark) => inner.split("\n").map((part) => {
+      const m = part.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      return m[2] ? `${m[1]}${mark}${m[2]}${mark}${m[3]}` : part;
+    }).join("\n");
+    const weight = node.style?.fontWeight || "";
+    if (tag === "B" || tag === "STRONG" || /bold|[6-9]00/.test(weight)) return wrap("**");
+    if (tag === "I" || tag === "EM" || node.style?.fontStyle === "italic") return wrap("*");
+    if (tag === "A") {
+      const href = node.getAttribute("href") || "";
+      return inner.trim() && href ? `[${inner.replace(/\n/g, " ").trim()}](${href})` : inner;
+    }
+    if (/^(P|DIV|LI|H[1-6])$/.test(tag)) return `\n${inner}\n`;
+    return inner;
+  };
+  const walk = (parent) => {
+    for (const node of parent.childNodes) {
+      const tag = node.nodeType === 1 ? node.tagName : "";
+      if (tag === "UL" || tag === "OL") {
+        flush();
+        const items = [...node.children].filter((li) => li.tagName === "LI").map((li) => inline(li).replace(/\s*\n+\s*/g, " ").trim()).filter(Boolean);
+        if (items.length) blocks.push(items.map((x) => `- ${x}`).join("\n"));
+      } else if (/^(P|DIV|H[1-6]|BLOCKQUOTE)$/.test(tag)) {
+        flush();
+        if ([...node.children].some((c) => /^(P|DIV|UL|OL)$/.test(c.tagName))) walk(node);
+        else { current = inline(node); flush(); }
+      } else {
+        current += inline(node);
+      }
+    }
+  };
+  walk(root);
+  flush();
+  return blocks.join("\n\n");
+}
+
+// Turns a hidden textarea into a formatted editor with a toolbar.
+function setupRich(textarea) {
+  const box = textarea.parentElement.querySelector(`[data-rich="${textarea.id}"]`);
+  if (!box || box.dataset.ready) return;
+  box.dataset.ready = "1";
+  const area = box.querySelector(".rich-area");
+  const bar = box.querySelector(".rich-bar");
+  const tools = box.querySelector(".rich-tools");
+  const linkBox = box.querySelector(".rich-link");
+  const linkInput = linkBox.querySelector("input");
+  let last = textarea.value;
+  let savedRange = null;
+  area.innerHTML = mdToHtml(textarea.value);
+
+  const sync = () => {
+    const md = htmlToMd(area);
+    if (md === textarea.value) return;
+    last = md;
+    textarea.value = md;
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  // Changes made from outside (AI, dictation, undo) redraw the editor.
+  textarea.addEventListener("input", () => {
+    if (textarea.value === last) return;
+    last = textarea.value;
+    area.innerHTML = mdToHtml(textarea.value);
+  });
+  area.addEventListener("input", sync);
+  area.addEventListener("focus", () => document.execCommand("defaultParagraphSeparator", false, "p"));
+  area.addEventListener("paste", (e) => {
+    e.preventDefault();
+    document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+  });
+
+  const paintState = () => {
+    if (!area.isConnected) return document.removeEventListener("selectionchange", paintState);
+    if (!area.contains(document.getSelection()?.anchorNode)) return;
+    bar.querySelector('[data-cmd="bold"]').classList.toggle("on", document.queryCommandState("bold"));
+    bar.querySelector('[data-cmd="italic"]').classList.toggle("on", document.queryCommandState("italic"));
+  };
+  document.addEventListener("selectionchange", paintState);
+
+  const openLink = () => {
+    const sel = document.getSelection();
+    if (!sel.rangeCount || !area.contains(sel.anchorNode) || sel.isCollapsed) {
+      notify("Selecciona primero el texto que quieres convertir en enlace.", { error: true });
+      return;
+    }
+    savedRange = sel.getRangeAt(0).cloneRange();
+    const current = sel.anchorNode.parentElement?.closest("a");
+    linkInput.value = current?.getAttribute("href") || "https://";
+    linkBox.hidden = false;
+    linkInput.focus();
+    linkInput.select();
+  };
+  const restore = () => {
+    area.focus();
+    const sel = document.getSelection();
+    sel.removeAllRanges();
+    if (savedRange) sel.addRange(savedRange);
+  };
+  const applyLink = () => {
+    const url = linkInput.value.trim();
+    if (!/^https:\/\/[^\s]+\.[^\s]+/.test(url)) return notify("El enlace debe empezar por https://", { error: true });
+    restore();
+    document.execCommand("createLink", false, url);
+    linkBox.hidden = true;
+    sync();
+  };
+  linkInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); applyLink(); }
+    if (e.key === "Escape") { linkBox.hidden = true; restore(); }
+  });
+  linkBox.querySelector('[data-link="ok"]').onclick = applyLink;
+  linkBox.querySelector('[data-link="remove"]').onclick = () => { restore(); document.execCommand("unlink"); linkBox.hidden = true; sync(); };
+
+  bar.querySelectorAll("[data-cmd]").forEach((b) => {
+    b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the selection
+    b.onclick = () => {
+      if (b.dataset.cmd === "link") return openLink();
+      area.focus();
+      document.execCommand(b.dataset.cmd);
+      sync();
+      paintState();
+    };
+  });
+  area.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openLink(); }
+  });
+  if (Recognition) tools.prepend(micButton(textarea));
+}
+
+// ---------- AI chat ----------
+
+const chat = { el: null, targetId: null, history: {} };
+
+function aiButton(targetId, label, multiline) {
+  return `<button type="button" class="ai-btn" data-chat="${targetId}" data-chat-label="${esc(label)}" data-chat-multi="${multiline ? 1 : 0}" title="Pedir a la IA" aria-label="Pedir a la IA">AI</button>`;
+}
+
+function chatEl() {
+  if (chat.el) return chat.el;
+  const el = document.createElement("aside");
+  el.className = "chat";
+  el.hidden = true;
+  el.setAttribute("aria-label", "Asistente de IA");
+  el.innerHTML = `<header><div><strong>Asistente de IA</strong><small class="chat-field"></small></div><button type="button" class="icon-btn" data-chat-close aria-label="Cerrar">✕</button></header>
+    <div class="chat-log" aria-live="polite"></div>
+    <div class="chat-chips"></div>
+    <form class="chat-form"><textarea rows="2" placeholder="Por ejemplo: escribe un texto para celebrar el 25.º aniversario que anime a asistir"></textarea><button class="btn primary small" type="submit">Enviar</button></form>`;
+  document.body.append(el);
+  el.querySelector("[data-chat-close]").onclick = () => { el.hidden = true; };
+  const input = el.querySelector("textarea");
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.querySelector("form").requestSubmit(); }
+  });
+  el.querySelector("form").onsubmit = (e) => { e.preventDefault(); sendChat(input.value); };
+  chat.el = el;
+  return el;
+}
+
+function drawChat() {
+  const el = chatEl();
+  const log = el.querySelector(".chat-log");
+  const items = chat.history[chat.targetId] || [];
+  log.innerHTML = items.length
+    ? items.map((m, i) => `<div class="msg ${m.role}">${esc(m.content)}${m.applied ? `<div class="applied">Texto insertado en el campo. <button type="button" data-undo="${i}">Deshacer</button></div>` : ""}</div>`).join("")
+    : `<div class="msg assistant">Pídeme un texto nuevo para este campo o cambios sobre el que ya tiene. Lo insertaré directamente en el campo.</div>`;
+  if (!S.config.ai) log.innerHTML += `<div class="msg note">La IA no está activa en este entorno (faltan las variables de Azure OpenAI), así que todavía no puedo responder.</div>`;
+  log.querySelectorAll("[data-undo]").forEach((b) => b.onclick = () => {
+    const m = items[Number(b.dataset.undo)];
+    const target = document.getElementById(chat.targetId);
+    if (!target) return;
+    target.value = m.before;
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    m.applied = false;
+    drawChat();
+  });
+  log.scrollTop = log.scrollHeight;
+  el.querySelector("form button").disabled = !S.config.ai;
+}
+
+function openChat(button) {
+  const el = chatEl();
+  chat.targetId = button.dataset.chat;
+  chat.label = button.dataset.chatLabel;
+  chat.multiline = button.dataset.chatMulti === "1";
+  el.querySelector(".chat-field").textContent = `Campo: ${chat.label}`;
+  const chips = chat.multiline
+    ? ["Escribe un texto que anime a asistir", "Hazlo más corto", "Pásalo a tercera persona del plural", "Tono más cercano"]
+    : ["Propón una alternativa", "Más corto", "Más llamativo"];
+  el.querySelector(".chat-chips").innerHTML = chips.map((c) => `<button type="button" class="btn small">${esc(c)}</button>`).join("");
+  el.querySelectorAll(".chat-chips button").forEach((b) => b.onclick = () => { el.querySelector("textarea").value = b.textContent; el.querySelector("textarea").focus(); });
+  el.hidden = false;
+  drawChat();
+  el.querySelector("textarea").focus();
+}
+
+async function sendChat(value) {
+  const el = chatEl();
+  const text = String(value || "").trim();
+  const target = document.getElementById(chat.targetId);
+  if (!text || !S.config.ai) return;
+  if (!target) return notify("Ese campo ya no está en pantalla. Vuelve a abrir el asistente desde el campo.", { error: true });
+  const id = chat.targetId;
+  const history = (chat.history[id] ||= []);
+  history.push({ role: "user", content: text });
+  el.querySelector("textarea").value = "";
+  drawChat();
+  const send = el.querySelector("form button");
+  await busy(send, async () => {
+    try {
+      const d = S.draft;
+      const ev = moduleOf("event") || {};
+      const facts = { ...(d.source || {}), date: ev.date, endDate: ev.endDate, startTime: ev.startTime, endTime: ev.endTime, venue: ev.venue, address: ev.address };
+      const result = await api("ai/chat", { method: "POST", body: {
+        language: d.language, template: d.template, field: chat.label, multiline: chat.multiline,
+        text: target.value, messages: history.filter((m) => !m.error).map(({ role, content }) => ({ role, content })),
+        subject: d.subject, modules: d.modules, facts,
+      } });
+      const entry = { role: "assistant", content: result.reply || (result.text ? "Hecho." : "No he cambiado el texto.") };
+      const live = document.getElementById(id);
+      if (result.text && live) {
+        entry.before = live.value;
+        entry.applied = true;
+        live.value = result.text;
+        live.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      history.push(entry);
+    } catch (error) {
+      history.push({ role: "assistant", content: error.message, error: true });
+    }
+    if (chat.targetId === id) drawChat();
+  });
 }
 
 // ---------- draft state ----------
@@ -220,6 +492,21 @@ function schedulePreview() {
   S.previewTimer = setTimeout(refreshPreview, 300);
 }
 
+// The sandboxed preview frame has no origin, so browsers refuse to load images
+// served by this app (uploads in simulation mode, logo, icons). They are
+// embedded as data URLs in the preview only; the exported email keeps the URLs.
+const ownImages = new Map();
+async function inlineOwnImages(html) {
+  const urls = [...new Set(html.match(new RegExp(`${location.origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[^"'()\\s]+\\.(?:png|jpe?g|gif|webp)`, "g")) || [])];
+  await Promise.all(urls.filter((u) => !ownImages.has(u)).map(async (u) => {
+    try {
+      const blob = await (await fetch(u)).blob();
+      ownImages.set(u, await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); }));
+    } catch { /* leave the URL as it is */ }
+  }));
+  return urls.reduce((out, u) => (ownImages.has(u) ? out.replaceAll(u, ownImages.get(u)) : out), html);
+}
+
 async function refreshPreview() {
   const frame = document.getElementById("preview");
   if (!frame || !S.draft) return;
@@ -234,7 +521,7 @@ async function refreshPreview() {
     // The frame is sandboxed without same-origin access, so it reports its own
     // scroll position and restores it after each redraw.
     const keep = `<script>scrollTo(0,${Number(S.previewScroll) || 0});addEventListener('scroll',function(){parent.postMessage({studioScroll:scrollY},'*');});<\/script>`;
-    frame.srcdoc = S.preview.html.replace("</body>", `${script}${keep}</body>`);
+    frame.srcdoc = (await inlineOwnImages(S.preview.html)).replace("</body>", `${script}${keep}</body>`);
     if (document.body.dataset.step === "review") S.onPreview?.();
   } catch (error) {
     notify(error.message, { error: true });
@@ -275,11 +562,20 @@ function fieldHtml(module, field, path = field.key, value = module[field.key]) {
   const attrs = `id="${id}" data-mod="${module.id}" data-path="${esc(path)}"`;
   switch (field.kind) {
     case "longtext":
-      return `<label class="field">${label}<div><textarea ${attrs} rows="8">${esc(value)}</textarea></div>${S.config.ai && field.ai ? `<div class="ai-row">
+      return `<div class="field">${label}<div class="rich" data-rich="${id}">
+        <div class="rich-bar" role="toolbar" aria-label="Formato">
+          <button type="button" class="tb" data-cmd="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
+          <button type="button" class="tb" data-cmd="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
+          <button type="button" class="tb" data-cmd="link" title="Enlace (Ctrl+K)" aria-label="Enlace">🔗</button>
+          <button type="button" class="tb" data-cmd="insertUnorderedList" title="Lista" aria-label="Lista">•≡</button>
+          <span class="rich-tools">${field.ai ? aiButton(id, t(field.label), true) : ""}</span>
+        </div>
+        <div class="rich-link" hidden><input type="url" placeholder="https://…" aria-label="Enlace"><button type="button" class="btn small primary" data-link="ok">Aplicar</button><button type="button" class="btn small ghost" data-link="remove">Quitar enlace</button></div>
+        <div class="rich-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${esc(t(field.label))}"></div>
+      </div><textarea ${attrs} hidden>${esc(value)}</textarea>${S.config.ai && field.ai ? `<div class="ai-row">
         <button type="button" class="btn small" data-ai="improve" data-target="${id}">Mejorar</button>
         <button type="button" class="btn small" data-ai="shorten" data-target="${id}">Acortar</button>
-        <button type="button" class="btn small" data-ai="fix" data-target="${id}">Corregir estilo</button></div>` : ""}
-        <small>Admite **negrita**, *cursiva*, [texto](https://enlace) y listas con guiones.</small></label>`;
+        <button type="button" class="btn small" data-ai="fix" data-target="${id}">Corregir estilo</button></div>` : ""}</div>`;
     case "image":
       return `<div class="field image-pick"><span>${esc(t(field.label))}</span>
         ${value ? `<img class="thumb" src="${esc(value)}" alt="">` : ""}
@@ -306,6 +602,7 @@ function fieldHtml(module, field, path = field.key, value = module[field.key]) {
     case "html":
       return `<div class="field"><span>${esc(t(field.label))}</span><small>Este módulo lo crea la IA dentro del marco de marca. Cambia las indicaciones y vuelve a generarlo.</small></div>`;
     default:
+      if (field.ai) return `<label class="field">${label}<div class="with-ai"><input type="text" ${attrs} value="${esc(value)}">${aiButton(id, t(field.label), false)}</div></label>`;
       return `<label class="field">${label}<input type="text" ${attrs} value="${esc(value)}"></label>`;
   }
 }
@@ -334,8 +631,12 @@ function bindFields(root, onStructure) {
       if (m.type === "signature" && ["name", "role"].includes(input.dataset.path)) localStorage.setItem(`studio.signature.${input.dataset.path}`, input.value);
       touch();
     });
-    if (input.tagName === "TEXTAREA") attachMic(input);
+    if (input.tagName === "TEXTAREA") {
+      if (input.parentElement.querySelector(`[data-rich="${input.id}"]`)) setupRich(input);
+      else attachMic(input);
+    }
   });
+  $$("[data-chat]", root).forEach((b) => b.onclick = (e) => { e.preventDefault(); openChat(b); });
   $$("[data-list-add]", root).forEach((b) => b.onclick = () => {
     const [id, key] = b.dataset.listAdd.split("|");
     const m = getModule(id);
@@ -538,7 +839,7 @@ function inviteQuestions() {
     { key: "overlay", type: "hero", title: "¿Qué texto y qué botón van encima de la imagen?", hint: "Es lo primero que se ve. Aparece como texto real, así se lee aunque el correo bloquee las imágenes.", fields: pick("hero", ["title", "subtitle", "ctaLabel", "ctaUrl"]) },
     { key: "event", type: "event", title: "Confirma los datos del evento", hint: "Las fechas y horas se escriben solas según la guía de estilo.", fields: mod("event") },
     { key: "message", custom: renderMessageQuestion },
-    { key: "agenda", type: "agenda", optional: true, title: "¿Quieres incluir la agenda?", hint: "Puedes dictarla o pegarla tal cual y la ordeno.", custom: renderAgendaQuestion },
+    { key: "agenda", type: "agenda", optional: true, title: "¿Quieres incluir la agenda?", hint: "Escríbela o pégala tal cual y la ordeno.", custom: renderAgendaQuestion },
     { key: "speakers", type: "speakers", optional: true, title: "¿Hay ponentes?", fields: pick("speakers", ["items"]) },
     { key: "cta", type: "cta", title: "¿A dónde lleva el botón del final del email?", hint: "Suele ser el mismo enlace de inscripción que el de la cabecera.", fields: mod("cta") },
     { key: "signature", type: "signature", optional: true, title: "¿Quién firma el email?", hint: "Recordaré tu firma para la próxima vez.", fields: mod("signature") },
@@ -637,11 +938,10 @@ function renderAgendaQuestion(body, q, redraw) {
     <label class="field"><span>Agenda en texto libre</span><div><textarea id="agenda-free" rows="6" placeholder="19:00 h Bienvenida&#10;19:15 h Mesa redonda con…&#10;20:30 h Cóctel"></textarea></div></label>
     <button class="btn" data-act="structure">${S.config.ai ? "✨ Ordenar agenda" : "Convertir en lista"}</button>
     <div id="agenda-list" style="margin-top:16px">${m ? fieldHtml(m, S.config.modules.agenda.fields[1]) : ""}</div>`;
-  attachMic($("#agenda-free", body));
   bindFields(body, redraw);
   $('[data-act="structure"]', body).onclick = (e) => busy(e.currentTarget, async () => {
     const free = $("#agenda-free", body).value.trim();
-    if (!free) throw new Error("Escribe o dicta primero la agenda.");
+    if (!free) throw new Error("Escribe o pega primero la agenda.");
     let items;
     if (S.config.ai) items = (await api("ai/agenda", { method: "POST", body: { language: S.draft.language, text: free } })).items;
     else items = free.split("\n").filter(Boolean).map((line) => {
