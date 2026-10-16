@@ -476,17 +476,78 @@ function legalRow(language) {
   return `<tr><td style="padding:14px 24px;background:${BRAND.rule};font-family:${BRAND.font};font-size:11px;line-height:1.4;color:#555555;">${COPY[language].legal}</td></tr>`;
 }
 
-export function renderEmail(draft, { assets = defaultAssets(), preview = false } = {}) {
+// Fine adjustments ("ajustes finos"): small edits the AI makes to the
+// rendered HTML of one part of the email when the user asks for something the
+// modules cannot express (a few pixels less of space, a black button...).
+// Each one is stored as exact find/replace operations scoped to a module id or
+// to a fixed part, and replayed on every render so the modules stay editable.
+export const FIXED_PARTS = {
+  logo: { es: "Logo IESE Alumni", en: "IESE Alumni logo" },
+  quicklinks: { es: "Accesos rápidos", en: "Quick links" },
+  footer: { es: "Pie de marca", en: "Brand footer" },
+  legal: { es: "Texto legal", en: "Legal text" },
+};
+const UNSAFE_HTML = /<\s*\/?\s*(script|iframe|object|embed|form|input|button|textarea|select|link|meta|style|base|svg|math|frame|frameset)\b|\son[a-z]+\s*=|javascript:|vbscript:|expression\s*\(|@import/i;
+
+export function isSafeTweakHtml(value) {
+  return !UNSAFE_HTML.test(String(value ?? ""));
+}
+
+export function cleanTweaks(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 30).filter((t) => t && Array.isArray(t.ops)).map((t) => ({
+    id: /^t[a-z0-9]{4,20}$/.test(t.id || "") ? t.id : `t${Math.random().toString(36).slice(2, 10)}`,
+    instruction: String(t.instruction ?? "").slice(0, 1000),
+    ops: t.ops.slice(0, 20)
+      .filter((o) => o && typeof o.find === "string" && o.find && typeof o.replace === "string" && typeof o.scope === "string")
+      .map((o) => ({ scope: o.scope.slice(0, 40), find: o.find.slice(0, 5000), replace: o.replace.slice(0, 5000) }))
+      .filter((o) => isSafeTweakHtml(o.replace)),
+  })).filter((t) => t.ops.length);
+}
+
+function applyTweaks(html, scope, tweaks, reports) {
+  let out = html;
+  tweaks.forEach((t, i) => {
+    for (const op of t.ops) {
+      if (op.scope !== scope) continue;
+      if (out.includes(op.find)) {
+        out = out.replace(op.find, () => op.replace);
+        reports[i].applied += 1;
+      } else {
+        reports[i].missed += 1;
+      }
+    }
+  });
+  return out;
+}
+
+// The email split into its parts, each with fine adjustments applied and with
+// no preview markers. renderEmail joins them; the AI edits them one by one.
+export function renderParts(draft, { assets = defaultAssets(), preview = false } = {}) {
   const language = LANGUAGES.includes(draft.language) ? draft.language : "es";
   const ctx = { language, preview };
+  const tweaks = cleanTweaks(draft.tweaks);
+  const reports = tweaks.map((t) => ({ id: t.id, instruction: t.instruction, applied: 0, missed: 0 }));
+  const parts = [];
+  const add = (scope, label, html, marker = "") => {
+    if (html) parts.push({ scope, label, html: applyTweaks(html, scope, tweaks, reports), marker });
+  };
+  if (!draft.hideLogo) add("logo", FIXED_PARTS.logo[language], `<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="IESE Alumni" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>`);
+  for (const m of Array.isArray(draft.modules) ? draft.modules : []) {
+    const html = renderers[m.type]?.(m, ctx) || "";
+    const marker = (html.match(/ data-module-id="[^"]*" data-module-type="[^"]*"/) || [""])[0];
+    add(m.id, MODULES[m.type]?.label[language] || m.type, marker ? html.replace(marker, "") : html, marker);
+  }
+  add("quicklinks", FIXED_PARTS.quicklinks[language], quickLinksRow(language, assets));
+  add("footer", FIXED_PARTS.footer[language], brandFooterRow(assets));
+  add("legal", FIXED_PARTS.legal[language], legalRow(language));
+  return { language, parts, tweaks: reports };
+}
+
+export function renderEmail(draft, { assets = defaultAssets(), preview = false } = {}) {
+  const { language, parts, tweaks } = renderParts(draft, { assets, preview });
   const modules = Array.isArray(draft.modules) ? draft.modules : [];
-  const body = modules
-    .map((m) => {
-      const html = renderers[m.type]?.(m, ctx) || "";
-      if (preview || !html) return html;
-      return html.replace(/ data-module-id="[^"]*" data-module-type="[^"]*"/, "");
-    })
-    .join("");
+  const rows = parts.map((p) => (preview && p.marker ? p.html.replace("<tr", `<tr${p.marker}`) : p.html)).join("\n");
   const preheader = escapeHtml(draft.preheader || "");
   const html = `<!doctype html>
 <html lang="${language}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -508,11 +569,7 @@ export function renderEmail(draft, { assets = defaultAssets(), preview = false }
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EFEFEF;">
 <tr><td align="center" style="padding:0;">
 <table role="presentation" class="wrap" width="${BRAND.width}" cellpadding="0" cellspacing="0" border="0" style="width:${BRAND.width}px;max-width:100%;background:${BRAND.white};">
-${draft.hideLogo ? "" : `<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="IESE Alumni" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>`}
-${body}
-${quickLinksRow(language, assets)}
-${brandFooterRow(assets)}
-${legalRow(language)}
+${rows}
 </table>
 </td></tr>
 </table>
@@ -523,7 +580,20 @@ ${legalRow(language)}
     COPY[language].legalText,
     "{{{EmailPreferenceCenter_654}}}",
   ].join("\n\n");
-  return { html, text };
+  return { html, text, tweaks };
+}
+
+// Adds a warning for each fine adjustment that no longer fits the content.
+export function withTweakWarnings(validation, tweaks, language = "es") {
+  for (const t of tweaks || []) {
+    if (!t.missed) continue;
+    const text = language === "en"
+      ? `Fine adjustment "${t.instruction}" could not be fully applied because the content changed. Remove it or ask for it again.`
+      : `El ajuste fino «${t.instruction}» no se ha podido aplicar del todo porque el contenido ha cambiado. Quítalo o vuelve a pedirlo.`;
+    validation.warnings.push(text);
+    validation.targets.warnings.push({ tweak: t.id });
+  }
+  return validation;
 }
 
 // Each error and warning has a matching entry in `targets` saying where it can

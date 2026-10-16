@@ -115,6 +115,19 @@ export function createAi({ getClient, buildRequest, extractText }) {
       return { reply: String(result?.reply || "").trim(), text: next };
     },
 
+    // Fine adjustments: exact find/replace edits on the HTML of the email parts.
+    async tweakHtml({ instruction, parts }) {
+      const instructions = [
+        "You make small, precise adjustments to the HTML of an IESE Alumni email, as asked by the user (spacing, colours, sizes, alignment, borders, wording of one element...).",
+        "The email is split into parts. Each part has a scope id, a label and its HTML (table rows with inline styles).",
+        "Return JSON {reply, ops}. ops is an array of {scope, find, replace}: find is an exact substring copied character by character from the HTML of that scope, short but unique inside it; replace is what goes in its place. Change only what the request needs.",
+        "Keep email-safe HTML: tables, inline styles only, no scripts, no event attributes, no forms, no <style> blocks. When changing a background colour of a cell, change both the bgcolor attribute and the background in the style. Keep links, images and fields like {{Recipient.FirstName}}.",
+        "If the request is ambiguous or no part matches, return ops [] and ask in reply. reply is one short sentence in the user's language saying what you changed.",
+      ].join("\n");
+      const result = await askJson(instructions, { request: instruction, parts: parts.map(({ scope, label, html }) => ({ scope, label, html })) });
+      return { reply: String(result?.reply || "").trim(), ops: Array.isArray(result?.ops) ? result.ops : [] };
+    },
+
     async structureAgenda({ language, text }) {
       const instructions = [
         "Turn this agenda, written or dictated freely, into a list of agenda items.",

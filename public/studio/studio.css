@@ -220,3 +220,12 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .check-link .go { margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: bold; text-decoration: underline; }
 .flash { animation: flash 1.6s ease-out; border-radius: 8px; }
 @keyframes flash { 0%, 40% { box-shadow: 0 0 0 4px var(--red); } 100% { box-shadow: 0 0 0 4px transparent; } }
+
+/* Fine adjustments */
+.tweaks { margin: 0 0 18px; padding: 14px; border: 1px solid var(--red); border-radius: var(--radius); background: var(--red-soft); }
+.tweaks h3 { margin: 0 0 4px; font-size: 16px; }
+.tweaks .hint { margin: 0 0 10px; }
+.tweaks .field { margin-bottom: 8px; }
+.tweak-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.tweak-list li { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 6px 6px 6px 10px; font-size: 13px; }
+.tweak-list li span { flex: 1; }

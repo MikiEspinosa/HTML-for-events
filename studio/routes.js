@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createAi, applyTexts, collectTexts } from "./ai.js";
-import { BRAND, COPY, LANGUAGES, MODULES, QUICK_LINKS, TEMPLATES, defaultAssets, renderEmail, sanitizeCustomHtml, validateDraft } from "./brand.js";
+import { BRAND, COPY, LANGUAGES, MODULES, QUICK_LINKS, TEMPLATES, cleanTweaks, defaultAssets, isSafeTweakHtml, renderEmail, renderParts, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "./brand.js";
 import { captureEvent } from "./capture.js";
 import { formatDate, formatTime } from "./format.js";
 import { GUIDE_VERSIONS } from "./rules.js";
@@ -69,6 +69,7 @@ function cleanDraftFields(input, current = {}) {
     if (input[key] !== undefined) fields[key] = String(input[key] ?? "").slice(0, key === "brief" ? 20000 : 300);
   }
   if (input.hideLogo !== undefined) fields.hideLogo = input.hideLogo === true;
+  if (input.tweaks !== undefined) fields.tweaks = cleanTweaks(input.tweaks);
   if (input.modules !== undefined) fields.modules = cleanModules(input.modules, language);
   if (input.source !== undefined && input.source && typeof input.source === "object") fields.source = JSON.parse(JSON.stringify(input.source).slice(0, 60000));
   if (input.pardot && typeof input.pardot === "object") {
@@ -268,7 +269,8 @@ export function createStudioHandler(deps, env = process.env) {
       }
       if (id && parts[2] === "export" && method === "POST") {
         const draft = await store.getDraft(user.id, id);
-        return send(response, 200, { ...renderEmail(draft, { assets: assetsFor(request, env) }), validation: validateDraft(draft) });
+        const rendered = renderEmail(draft, { assets: assetsFor(request, env) });
+        return send(response, 200, { ...rendered, validation: withTweakWarnings(validateDraft(draft), rendered.tweaks, draft.language) });
       }
       if (id && parts[2] === "publish" && method === "POST") {
         const body = await readJson(request);
@@ -313,8 +315,10 @@ export function createStudioHandler(deps, env = process.env) {
         preheader: String(body.preheader || ""),
         hideLogo: body.hideLogo === true,
         modules: cleanModules(body.modules, body.language),
+        tweaks: cleanTweaks(body.tweaks),
       };
-      return send(response, 200, { ...renderEmail(draft, { assets: assetsFor(request, env), preview: true }), validation: validateDraft(draft) });
+      const rendered = renderEmail(draft, { assets: assetsFor(request, env), preview: true });
+      return send(response, 200, { ...rendered, validation: withTweakWarnings(validateDraft(draft), rendered.tweaks, draft.language) });
     }
 
     if (method === "POST" && parts[0] === "capture") {
@@ -367,6 +371,27 @@ export function createStudioHandler(deps, env = process.env) {
             context,
             examples: await examplesFor(draftLike),
           }));
+        }
+        case "tweak": {
+          const instruction = String(body.instruction || "").trim().slice(0, 1000);
+          if (!instruction) throw new HttpError("Escribe o dicta primero el ajuste que quieres.");
+          const draft = { template: draftLike.template, language, hideLogo: body.hideLogo === true, modules: cleanModules(body.modules, language), tweaks: cleanTweaks(body.tweaks) };
+          const { parts } = renderParts(draft, { assets: assetsFor(request, env) });
+          const { reply, ops } = await ai.tweakHtml({ language, instruction, parts });
+          const byScope = new Map(parts.map((p) => [p.scope, p.html]));
+          // Keep only edits that match the current HTML exactly and stay safe;
+          // they are applied in order, so each one sees the previous ones.
+          const valid = [];
+          for (const op of Array.isArray(ops) ? ops.slice(0, 20) : []) {
+            const html = byScope.get(op?.scope);
+            if (typeof html !== "string" || typeof op.find !== "string" || !op.find || typeof op.replace !== "string") continue;
+            if (!html.includes(op.find) || !isSafeTweakHtml(op.replace)) continue;
+            byScope.set(op.scope, html.replace(op.find, () => op.replace));
+            valid.push({ scope: op.scope, find: op.find, replace: op.replace });
+          }
+          if (!valid.length) return send(response, 200, { reply: reply || "No he sabido aplicar ese ajuste. Prueba a decir en qué parte del email está.", tweak: null });
+          const [tweak] = cleanTweaks([{ instruction, ops: valid }]);
+          return send(response, 200, { reply: reply || "Ajuste aplicado.", tweak });
         }
         case "agenda":
           return send(response, 200, { items: await ai.structureAgenda({ language, text: String(body.text || "").slice(0, 10000) }) });

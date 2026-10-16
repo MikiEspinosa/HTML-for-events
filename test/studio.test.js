@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { parseIeseLandingHtml } from "../server.js";
 import { applyTexts, collectTexts, parseJsonReply } from "../studio/ai.js";
-import { BRAND, renderEmail, sanitizeCustomHtml, validateDraft } from "../studio/brand.js";
+import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
 import { captureEvent, checkCaptureUrl } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
 import { createStudioHandler, getUser, modulesForInvite } from "../studio/routes.js";
@@ -275,4 +275,47 @@ test("the AI chat of a field gets the conversation, the current text and the ema
   assert.equal(seen.context.facts.venue, "Campus de Madrid");
   assert.equal(seen.context.texts["mhead00001.text"], "Un reencuentro");
   assert.equal((await call("ai/chat", "POST", { ...body, messages: [] })).status, 400);
+});
+
+test("fine adjustments are replayed on every render and report when they no longer fit", () => {
+  const draft = sampleDraft();
+  const button = /<td bgcolor="#FF2800" style="background:#FF2800;/;
+  draft.tweaks = [
+    { id: "tblack001", instruction: "botón final en negro", ops: [{ scope: "mcta000001", find: 'bgcolor="#FF2800" style="background:#FF2800;', replace: 'bgcolor="#000000" style="background:#000000;' }] },
+    { id: "tfooter01", instruction: "pie más bajo", ops: [{ scope: "footer", find: "padding:22px 24px;", replace: "padding:12px 24px;" }] },
+    { id: "tevil0001", instruction: "malo", ops: [{ scope: "mtext00001", find: "Hola", replace: '<img src=x onerror="alert(1)">' }] },
+  ];
+  const preview = renderEmail(draft, { preview: true });
+  assert.match(preview.html, /data-module-id="mcta000001" data-module-type="cta"><td[^>]*><table[^>]*><tr><td bgcolor="#000000"/);
+  assert.match(preview.html, /padding:12px 24px;/);
+  assert.doesNotMatch(preview.html, /onerror/);
+  assert.equal(cleanTweaks(draft.tweaks).length, 2, "unsafe adjustments are dropped");
+  assert.match(renderEmail(sampleDraft()).html, button, "without adjustments the button stays red");
+
+  draft.tweaks.push({ id: "ttitle001", instruction: "título más grande", ops: [{ scope: "mhead00001", find: "font-size:26px", replace: "font-size:30px" }] });
+  assert.match(renderEmail(draft).html, /font-size:30px;line-height:1.25/);
+  draft.tweaks[3].ops[0].find = "font-size:99px";
+  const missed = renderEmail(draft);
+  const validation = withTweakWarnings(validateDraft(draft), missed.tweaks);
+  assert.ok(validation.warnings.some((w) => /título más grande/.test(w)));
+  assert.deepEqual(validation.targets.warnings.at(-1), { tweak: "ttitle001" });
+});
+
+test("the fine adjustment API keeps only exact and safe edits", async (t) => {
+  let parts;
+  const { call } = await startStudio(t, { ai: { tweakHtml: async (input) => {
+    parts = input.parts;
+    return { reply: "Botón en negro.", ops: [
+      { scope: "mcta000001", find: 'bgcolor="#FF2800" style="background:#FF2800;', replace: 'bgcolor="#000000" style="background:#000000;' },
+      { scope: "mcta000001", find: "no existe", replace: "x" },
+      { scope: "footer", find: "padding:22px 24px;", replace: '<script>alert(1)</script>' },
+    ] };
+  } } });
+  const result = await call("ai/tweak", "POST", { language: "es", template: "invite", instruction: "botón en negro", modules: sampleDraft().modules });
+  assert.equal(result.status, 200);
+  assert.ok(parts.some((p) => p.scope === "footer") && parts.some((p) => p.scope === "mcta000001"));
+  assert.ok(parts.every((p) => !/data-module-id/.test(p.html)));
+  assert.equal(result.body.tweak.ops.length, 1);
+  assert.equal(result.body.tweak.instruction, "botón en negro");
+  assert.equal((await call("ai/tweak", "POST", { language: "es", instruction: "" })).status, 400);
 });

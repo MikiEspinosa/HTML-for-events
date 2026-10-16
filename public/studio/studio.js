@@ -415,7 +415,7 @@ async function save() {
   const d = S.draft;
   S.saving = api(`drafts/${d.id}`, {
     method: "PUT",
-    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, hideLogo: Boolean(d.hideLogo), modules: d.modules, source: d.source, pardot: d.pardot },
+    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, hideLogo: Boolean(d.hideLogo), tweaks: d.tweaks || [], modules: d.modules, source: d.source, pardot: d.pardot },
   })
     .then(({ draft }) => {
       S.draft.version = draft.version;
@@ -512,7 +512,7 @@ async function refreshPreview() {
   if (!frame || !S.draft) return;
   try {
     const d = S.draft;
-    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), modules: d.modules } });
+    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), tweaks: d.tweaks || [], modules: d.modules } });
     const selectedCss = S.selected && document.body.dataset.step !== "review" ? `[data-module-id="${S.selected}"]>td{outline:3px solid #FF2800;outline-offset:-3px}` : "";
     const clickable = document.body.dataset.step === "editor";
     const script = clickable
@@ -1110,6 +1110,14 @@ function renderEditor() {
   const options = (tpl.addable || []).map((k) => `<option value="${k}">${esc(t(S.config.modules[k].label))}</option>`).join("");
   app.innerHTML = `<div class="split"><div class="panel">
       <h2>Editor</h2><p class="hint">Pulsa sobre cualquier parte del email para cambiarla.</p>
+      <section class="tweaks" id="tweaks">
+        <h3>✨ Ajustes finos</h3>
+        <p class="hint">Pide los últimos retoques que no salen en los campos. Por ejemplo: «quita un par de píxeles de espacio entre el título y la imagen» o «pon en negro el botón de Inscríbete».</p>
+        <label class="field"><div><textarea id="tweak-text" rows="3" placeholder="Escribe o dicta el ajuste…"></textarea></div></label>
+        <div class="row"><button type="button" class="btn primary small" data-act="tweak" ${S.config.ai ? "" : "disabled"}>Aplicar ajuste</button>
+          ${S.config.ai ? "" : '<small class="hint">Necesita la IA, que no está activa en este entorno.</small>'}</div>
+        ${(d.tweaks || []).length ? `<ul class="tweak-list">${d.tweaks.map((tw) => `<li data-tweak="${tw.id}"><span>${esc(tw.instruction)}</span><button type="button" class="icon-btn" data-untweak="${tw.id}" aria-label="Quitar este ajuste" title="Quitar este ajuste">✕</button></li>`).join("")}</ul>` : ""}
+      </section>
       <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="name fixed-name">Logo IESE Alumni${d.hideLogo ? " (quitado)" : ""}</span>
           <button class="${d.hideLogo ? "btn small" : "icon-btn"}" data-act="logo" aria-label="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}" title="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}">${d.hideLogo ? "Volver a poner" : "✕"}</button></li>
         ${d.modules.map((m, i) => `<li class="${m.id === S.selected ? "selected" : ""}"><button class="name" data-sel="${m.id}">${esc(t(S.config.modules[m.type].label))}</button>
@@ -1138,8 +1146,23 @@ function renderEditor() {
     renderEditor();
   };
   $('[data-act="logo"]').onclick = () => { d.hideLogo = !d.hideLogo; touch(); renderEditor(); };
+  const tweakText = $("#tweak-text");
+  attachMic(tweakText);
+  tweakText.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $('[data-act="tweak"]').click(); });
+  $('[data-act="tweak"]').onclick = (e) => busy(e.currentTarget, async () => {
+    const instruction = tweakText.value.trim();
+    if (!instruction) throw new Error("Escribe o dicta primero el ajuste.");
+    const { reply, tweak } = await api("ai/tweak", { method: "POST", body: { language: d.language, template: d.template, instruction, hideLogo: Boolean(d.hideLogo), modules: d.modules, tweaks: d.tweaks || [] } });
+    if (!tweak) throw new Error(reply);
+    d.tweaks = [...(d.tweaks || []), tweak];
+    touch();
+    renderEditor();
+    notify(reply, { actionLabel: "Deshacer", action: () => { d.tweaks = d.tweaks.filter((x) => x.id !== tweak.id); touch(); renderEditor(); } });
+  });
+  $$("[data-untweak]").forEach((b) => b.onclick = () => { d.tweaks = d.tweaks.filter((x) => x.id !== b.dataset.untweak); touch(); renderEditor(); });
   if (S.focus) {
-    const { id, addType } = S.focus;
+    const { id, addType, tweak } = S.focus;
+    if (tweak) flash($(`[data-tweak="${tweak}"]`) || $("#tweaks"));
     S.focus = null;
     if (addType && $("#add-type")) { $("#add-type").value = addType; flash($("#add-type").closest(".row")); $("#add-type").focus(); }
     const el = id && document.getElementById(id);
@@ -1176,6 +1199,10 @@ async function goToFix(target) {
     S.selected = target.moduleId;
     S.focus = { id: target.field ? `f-${target.moduleId}-${target.field.replaceAll(".", "-")}` : null };
     await flush();
+    return go(`#/d/${d.id}/editor`);
+  }
+  if (target.tweak) {
+    S.focus = { tweak: target.tweak };
     return go(`#/d/${d.id}/editor`);
   }
   if (target.addModule) {
