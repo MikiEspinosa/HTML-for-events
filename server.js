@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
+import { createStudioHandler } from "./studio/routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,7 +62,7 @@ export function loadEnvFile(filePath = path.join(__dirname, ".env")) {
   }
 }
 
-function boolFromEnv(value, fallback = false) {
+export function boolFromEnv(value, fallback = false) {
   if (value === undefined || value === "") return fallback;
   return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
 }
@@ -1118,7 +1119,7 @@ function buildGenerationPrompt(context) {
   ].join("\n\n");
 }
 
-function extractOpenAiText(payload) {
+export function extractOpenAiText(payload) {
   if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
     return payload.output_text.trim();
   }
@@ -1321,7 +1322,7 @@ export function resolveAiConfiguration(env = process.env) {
   return null;
 }
 
-function createAiClient(env = process.env) {
+export function createAiClient(env = process.env) {
   const config = resolveAiConfiguration(env);
   if (!config) return null;
 
@@ -1431,7 +1432,7 @@ export function buildListEmailPayload(input, rendered) {
   return payload;
 }
 
-function mergeDefaultInput(input) {
+export function mergeDefaultInput(input) {
   const dryRun = boolFromEnv(process.env.PARDOT_DRY_RUN, true);
   const dryRunDefaults = dryRun
     ? {
@@ -1472,7 +1473,7 @@ export async function buildPardotDraft(input) {
   return { payload, html, text };
 }
 
-function runtimeDefaults() {
+export function runtimeDefaults() {
   return {
     campaignId: process.env.PARDOT_DEFAULT_CAMPAIGN_ID || "",
     recipientListIds: process.env.PARDOT_DEFAULT_RECIPIENT_LIST_IDS || "",
@@ -1668,7 +1669,7 @@ export function buildPardotTemplateUrl(result) {
   return `${appBaseUrl.replace(/\/+$/, "")}/emailTemplate/read/id/${encodeURIComponent(String(id))}`;
 }
 
-async function getSalesforceAccessToken() {
+export async function getSalesforceAccessToken() {
   if (process.env.PARDOT_ACCESS_TOKEN) return process.env.PARDOT_ACCESS_TOKEN;
 
   const loginUrl = process.env.SALESFORCE_LOGIN_URL || "https://login.salesforce.com";
@@ -1760,7 +1761,7 @@ async function createPardotListEmail(payload) {
   };
 }
 
-async function createPardotEmailTemplate(payload) {
+export async function createPardotEmailTemplate(payload) {
   const businessUnitId = process.env.PARDOT_BUSINESS_UNIT_ID;
   if (!businessUnitId) {
     throw new AppError("Falta PARDOT_BUSINESS_UNIT_ID en .env.", 500);
@@ -1846,11 +1847,12 @@ const mimeTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
 };
 
 async function serveStatic(request, response) {
   const url = new URL(request.url, "http://localhost");
-  const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
+  const requestedPath = url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname;
   const filePath = path.resolve(publicDir, `.${decodeURIComponent(requestedPath)}`);
 
   if (!filePath.startsWith(publicDir)) {
@@ -1989,10 +1991,42 @@ async function handleOAuth(request, response) {
   sendJson(response, 404, { error: "Ruta OAuth no encontrada." });
 }
 
+let studio;
+function studioHandler() {
+  studio ||= createStudioHandler({
+    rootDir: __dirname,
+    getAiClient: () => createAiClient(),
+    buildAiRequest: buildAiResponseRequest,
+    extractAiText: extractOpenAiText,
+    parseLanding: parseIeseLandingHtml,
+    isDryRun: () => boolFromEnv(process.env.PARDOT_DRY_RUN, true),
+    runtimeDefaults,
+    mergeDefaultInput,
+    buildEmailTemplatePayload,
+    createEmailTemplate: createPardotEmailTemplate,
+    templateUrl: buildPardotTemplateUrl,
+    getAccessToken: getSalesforceAccessToken,
+  });
+  return studio;
+}
+
 export function createServer() {
   return http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, "http://localhost");
+      if (url.pathname.startsWith("/api/studio/")) {
+        await studioHandler().handle(request, response);
+        return;
+      }
+      if (url.pathname.startsWith("/studio-uploads/")) {
+        await studioHandler().serveUpload(request, response, url);
+        return;
+      }
+      if (url.pathname === "/studio") {
+        response.writeHead(301, { Location: "/studio/" });
+        response.end();
+        return;
+      }
       if (url.pathname.startsWith("/api/")) {
         await handleApi(request, response);
         return;

@@ -50,6 +50,31 @@ Las claves, tokens y endpoints privados no se envían al frontend ni se escriben
 - Previsualización de HTML y payload.
 - Creación de email templates en Account Engagement.
 
+## Estudio de emails (piloto Alumni)
+
+Nueva interfaz guiada en `/studio/`. La aplicación anterior sigue en `/` sin cambios.
+
+- Flujo paso a paso: plantilla e idioma, punto de partida, preguntas, editor visual y revisión.
+- Plantillas activas: Invitación a evento y Pinta y Colorea. Calendario y Newsletter aparecen como «Próximamente».
+- Marca fija: rojo `#FF2800`, logo de IESE Alumni, accesos rápidos, pie de marca y texto legal. Pinta y Colorea puede crear módulos nuevos, pero su HTML pasa por un filtro que solo admite los estilos de marca.
+- Lectura completa de eventos de `apply.iese.edu`: datos estructurados más el texto de la página interpretado por la IA (cuerpo, agenda, ponentes, precio…).
+- Redacción, revisión de estilo y traducción con IA siguiendo las guías de estilo de [style-guides/](style-guides/) (resumidas en `studio/rules.js`).
+- Borradores privados por autor, con autoguardado y control de versión: dos ventanas no pueden pisarse el trabajo.
+- Al crear la plantilla en Pardot pregunta si la IA debe aprender de ese email; solo los marcados con «Sí» se usan como referencia.
+- Dictado por micrófono con el reconocimiento de voz del navegador (Edge o Chrome).
+
+Variables de entorno del estudio:
+
+- `STUDIO_DATA_DIR`: carpeta de borradores y ejemplos aprendidos (por defecto `./data`). En Azure, móntala en un volumen de Azure Files para que sobreviva a los reinicios.
+- `STUDIO_REQUIRE_LOGIN`: `true` exige usuario de Microsoft (Easy Auth de Container Apps con Microsoft Entra ID). Sin login, todos comparten el usuario «local».
+- `PUBLIC_BASE_URL`: URL pública de la app, para que las imágenes de marca tengan dirección absoluta en el email.
+- `BRAND_ASSET_BASE_URL`, `BRAND_HEADER_LOGO_URL`, `BRAND_FOOTER_LOGO_URL`: alojamiento alternativo de los logos e iconos (por ejemplo, Pardot Files).
+- `QUICK_LINK_APP_URL`, `QUICK_LINK_EMAIL_URL`, `QUICK_LINK_SEARCH_URL`, `QUICK_LINK_WEB_URL`: destinos de los accesos rápidos.
+- `CAPTURE_ALLOWED_HOSTS`: dominios que se pueden leer (por defecto `apply.iese.edu`).
+- `PARDOT_IMAGE_FOLDER_ID`: carpeta de Pardot Files para las imágenes subidas desde el ordenador.
+
+API del estudio en `/api/studio/` (`config`, `drafts`, `preview`, `capture`, `images`, `ai/*`). Solo se publica en Pardot desde `drafts/:id/publish`, que respeta `PARDOT_DRY_RUN`.
+
 ## API
 
 - `GET /api/config`: configuración pública y valores predeterminados sin secretos.

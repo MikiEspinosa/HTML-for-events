@@ -9,6 +9,8 @@ RUN pnpm install --prod --frozen-lockfile
 
 COPY public ./public
 COPY templates ./templates
+COPY studio ./studio
+COPY style-guides ./style-guides
 COPY server.js ./
 
 ENV NODE_ENV=production
