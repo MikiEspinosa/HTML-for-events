@@ -174,14 +174,34 @@ async function uploadToPardot(deps, { bytes, type, name }) {
   if (process.env.PARDOT_IMAGE_FOLDER_ID) input.folderId = Number(process.env.PARDOT_IMAGE_FOLDER_ID);
   form.set("input", new Blob([JSON.stringify(input)], { type: "application/json" }));
   form.set("file", new Blob([bytes], { type }), name);
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Pardot-Business-Unit-Id": businessUnitId },
-    body: form,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.url) throw new HttpError("Pardot no aceptó la imagen.", 502);
+  const headers = { Accept: "application/json", Authorization: `Bearer ${token}`, "Pardot-Business-Unit-Id": businessUnitId };
+  const response = await fetch(endpoint, { method: "POST", headers, body: form });
+  let data = await readPardotJson(response);
+  if (!response.ok) {
+    console.error(`Pardot file upload failed: HTTP ${response.status}`, JSON.stringify(data).slice(0, 2000));
+    const detail = [data.code, data.message].filter(Boolean).join(": ");
+    throw new HttpError(`Pardot no aceptó la imagen${detail ? ` (${detail})` : ` (HTTP ${response.status})`}.`, 502);
+  }
+  // The public URL may not come back with the creation; read the file again.
+  if (!data.url && data.id) {
+    const read = new URL(`/api/v5/objects/files/${encodeURIComponent(data.id)}`, baseUrl);
+    read.searchParams.set("fields", "id,name,url");
+    data = await readPardotJson(await fetch(read, { headers }));
+  }
+  if (!data.url) {
+    console.error("Pardot file upload returned no URL", JSON.stringify(data).slice(0, 2000));
+    throw new HttpError("Pardot ha guardado la imagen pero no ha devuelto su enlace público. Búscala en Pardot > Archivos y pega aquí su URL.", 502);
+  }
   return data.url;
+}
+
+async function readPardotJson(response) {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { message: text.slice(0, 300) };
+  }
 }
 
 export function createStudioHandler(deps, env = process.env) {
