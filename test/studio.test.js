@@ -319,3 +319,40 @@ test("the fine adjustment API keeps only exact and safe edits", async (t) => {
   assert.equal(result.body.tweak.instruction, "botón en negro");
   assert.equal((await call("ai/tweak", "POST", { language: "es", instruction: "" })).status, 400);
 });
+
+test("image uploads to Pardot explain rejections and recover a missing URL", async (t) => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "studio-upload-"));
+  const realFetch = globalThis.fetch;
+  const previousUnit = process.env.PARDOT_BUSINESS_UNIT_ID;
+  process.env.PARDOT_BUSINESS_UNIT_ID = "0Uv000000000001";
+  const pardot = [];
+  let mode = "reject";
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (!u.startsWith("https://pi.pardot.com/")) return realFetch(url, init);
+    pardot.push({ url: u, method: init.method || "GET" });
+    if (mode === "reject") return new Response(JSON.stringify({ code: 66, message: "Invalid value for folderId" }), { status: 400 });
+    if (init.method === "POST") return new Response(JSON.stringify({ id: 42, name: "foto.png" }), { status: 201 });
+    return new Response(JSON.stringify({ id: 42, name: "foto.png", url: "https://go.iese.edu/l/1/foto.png" }), { status: 200 });
+  };
+  const studio = createStudioHandler({ rootDir: dir, ai: { available: () => false }, isDryRun: () => false, runtimeDefaults: () => ({}), getAccessToken: async () => "token" }, { STUDIO_DATA_DIR: dir });
+  const server = http.createServer((req, res) => studio.handle(req, res));
+  await new Promise((resolve) => server.listen(0, resolve));
+  t.after(async () => {
+    globalThis.fetch = realFetch;
+    if (previousUnit === undefined) delete process.env.PARDOT_BUSINESS_UNIT_ID; else process.env.PARDOT_BUSINESS_UNIT_ID = previousUnit;
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  });
+  const upload = () => realFetch(`http://127.0.0.1:${server.address().port}/api/studio/images`, { method: "POST", headers: { "content-type": "image/png", "x-file-name": "foto.png" }, body: new Uint8Array([137, 80, 78, 71]) }).then(async (r) => ({ status: r.status, body: await r.json() }));
+
+  const rejected = await upload();
+  assert.equal(rejected.status, 502);
+  assert.match(rejected.body.error, /Invalid value for folderId/, "Pardot's own reason reaches the user");
+
+  mode = "accept";
+  const accepted = await upload();
+  assert.equal(accepted.status, 201);
+  assert.equal(accepted.body.url, "https://go.iese.edu/l/1/foto.png");
+  assert.match(pardot.at(-1).url, /\/api\/v5\/objects\/files\/42\?fields=id%2Cname%2Curl/);
+});
