@@ -194,35 +194,25 @@ function htmlToMd(root) {
   return blocks.join("\n\n");
 }
 
-// Turns a hidden textarea into a formatted editor with a toolbar.
-function setupRich(textarea) {
-  const box = textarea.parentElement.querySelector(`[data-rich="${textarea.id}"]`);
-  if (!box || box.dataset.ready) return;
-  box.dataset.ready = "1";
-  const area = box.querySelector(".rich-area");
+function richToolbar(tools = "", { list = true } = {}) {
+  return `<div class="rich-bar" role="toolbar" aria-label="Formato">
+          <button type="button" class="tb" data-cmd="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
+          <button type="button" class="tb" data-cmd="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
+          <button type="button" class="tb" data-cmd="link" title="Enlace (Ctrl+K)" aria-label="Enlace">🔗</button>
+          ${list ? '<button type="button" class="tb" data-cmd="insertUnorderedList" title="Lista" aria-label="Lista">•≡</button>' : ""}
+          <span class="rich-tools">${tools}</span>
+        </div>
+        <div class="rich-link" hidden><input type="url" placeholder="https://…" aria-label="Enlace"><button type="button" class="btn small primary" data-link="ok">Aplicar</button><button type="button" class="btn small ghost" data-link="remove">Quitar enlace</button></div>`;
+}
+
+// Wires the toolbar of a .rich box to its editable area. onChange runs after
+// every edit made from the toolbar or by typing.
+function bindToolbar(box, area, onChange) {
   const bar = box.querySelector(".rich-bar");
-  const tools = box.querySelector(".rich-tools");
   const linkBox = box.querySelector(".rich-link");
   const linkInput = linkBox.querySelector("input");
-  let last = textarea.value;
   let savedRange = null;
-  area.innerHTML = mdToHtml(textarea.value);
-
-  const sync = () => {
-    const md = htmlToMd(area);
-    if (md === textarea.value) return;
-    last = md;
-    textarea.value = md;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  };
-  // Changes made from outside (AI, dictation, undo) redraw the editor.
-  textarea.addEventListener("input", () => {
-    if (textarea.value === last) return;
-    last = textarea.value;
-    area.innerHTML = mdToHtml(textarea.value);
-  });
-  area.addEventListener("input", sync);
-  area.addEventListener("focus", () => document.execCommand("defaultParagraphSeparator", false, "p"));
+  area.addEventListener("input", onChange);
   area.addEventListener("paste", (e) => {
     e.preventDefault();
     document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
@@ -261,14 +251,14 @@ function setupRich(textarea) {
     restore();
     document.execCommand("createLink", false, url);
     linkBox.hidden = true;
-    sync();
+    onChange();
   };
   linkInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); applyLink(); }
     if (e.key === "Escape") { linkBox.hidden = true; restore(); }
   });
   linkBox.querySelector('[data-link="ok"]').onclick = applyLink;
-  linkBox.querySelector('[data-link="remove"]').onclick = () => { restore(); document.execCommand("unlink"); linkBox.hidden = true; sync(); };
+  linkBox.querySelector('[data-link="remove"]').onclick = () => { restore(); document.execCommand("unlink"); linkBox.hidden = true; onChange(); };
 
   bar.querySelectorAll("[data-cmd]").forEach((b) => {
     b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the selection
@@ -276,14 +266,40 @@ function setupRich(textarea) {
       if (b.dataset.cmd === "link") return openLink();
       area.focus();
       document.execCommand(b.dataset.cmd);
-      sync();
+      onChange();
       paintState();
     };
   });
   area.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openLink(); }
   });
-  if (Recognition) tools.prepend(micButton(textarea));
+}
+
+// Turns a hidden textarea into a formatted editor with a toolbar.
+function setupRich(textarea) {
+  const box = textarea.parentElement.querySelector(`[data-rich="${textarea.id}"]`);
+  if (!box || box.dataset.ready) return;
+  box.dataset.ready = "1";
+  const area = box.querySelector(".rich-area");
+  let last = textarea.value;
+  area.innerHTML = mdToHtml(textarea.value);
+
+  const sync = () => {
+    const md = htmlToMd(area);
+    if (md === textarea.value) return;
+    last = md;
+    textarea.value = md;
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  // Changes made from outside (AI, dictation, undo) redraw the editor.
+  textarea.addEventListener("input", () => {
+    if (textarea.value === last) return;
+    last = textarea.value;
+    area.innerHTML = mdToHtml(textarea.value);
+  });
+  area.addEventListener("focus", () => document.execCommand("defaultParagraphSeparator", false, "p"));
+  bindToolbar(box, area, sync);
+  if (Recognition) box.querySelector(".rich-tools").prepend(micButton(textarea));
 }
 
 // ---------- AI chat ----------
@@ -563,14 +579,7 @@ function fieldHtml(module, field, path = field.key, value = module[field.key]) {
   switch (field.kind) {
     case "longtext":
       return `<div class="field">${label}<div class="rich" data-rich="${id}">
-        <div class="rich-bar" role="toolbar" aria-label="Formato">
-          <button type="button" class="tb" data-cmd="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button>
-          <button type="button" class="tb" data-cmd="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button>
-          <button type="button" class="tb" data-cmd="link" title="Enlace (Ctrl+K)" aria-label="Enlace">🔗</button>
-          <button type="button" class="tb" data-cmd="insertUnorderedList" title="Lista" aria-label="Lista">•≡</button>
-          <span class="rich-tools">${field.ai ? aiButton(id, t(field.label), true) : ""}</span>
-        </div>
-        <div class="rich-link" hidden><input type="url" placeholder="https://…" aria-label="Enlace"><button type="button" class="btn small primary" data-link="ok">Aplicar</button><button type="button" class="btn small ghost" data-link="remove">Quitar enlace</button></div>
+        ${richToolbar(field.ai ? aiButton(id, t(field.label), true) : "")}
         <div class="rich-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${esc(t(field.label))}"></div>
       </div><textarea ${attrs} hidden>${esc(value)}</textarea>${S.config.ai && field.ai ? `<div class="ai-row">
         <button type="button" class="btn small" data-ai="improve" data-target="${id}">Mejorar</button>
@@ -1027,10 +1036,19 @@ function addPaintWriter(body, m) {
 
 function renderCustomQuestion(body, q) {
   const m = getModule(q.moduleId);
-  body.innerHTML = `<h2>${esc(q.title)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
-    <label class="field"><span>Contenido para este módulo</span><div><textarea id="custom-answer" rows="6" placeholder="Escribe o dicta lo que debe contener.">${esc(m.answer || "")}</textarea></div></label>
-    <button class="btn primary" data-act="build">${m.html ? "✨ Volver a crear el módulo" : "✨ Crear el módulo"}</button>
+  const rebuild = `<label class="field"><span>Contenido para este módulo</span><div><textarea id="custom-answer" rows="6" placeholder="Escribe o dicta lo que debe contener.">${esc(m.answer || "")}</textarea></div></label>
+    <button class="btn ${m.html ? "" : "primary"}" data-act="build">${m.html ? "✨ Volver a crear el módulo" : "✨ Crear el módulo"}</button>
     <p class="hint">La IA lo diseña dentro del marco de marca: colores, tipografía y estilos del IESE. Lo que no cumpla el marco se elimina.</p>`;
+  body.innerHTML = `<h2>${esc(q.title)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
+    ${m.html ? `<div class="field"><span>Edita el módulo</span><small>Haz clic en cualquier texto para cambiarlo. Selecciona texto para ponerlo en negrita, cursiva o convertirlo en enlace. Para cambios de diseño usa «Ajustes finos».</small>
+      <div class="rich custom-rich" data-custom-editor>${richToolbar("", { list: false })}<div class="rich-area custom-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del módulo"></div></div></div>
+      <details class="rebuild"><summary>Volver a crear el módulo con la IA</summary>${rebuild}</details>` : rebuild}`;
+  const editor = $("[data-custom-editor]", body);
+  if (editor) {
+    const area = editor.querySelector(".custom-area");
+    area.innerHTML = m.html;
+    bindToolbar(editor, area, () => { m.html = area.innerHTML; touch(); });
+  }
   const answer = $("#custom-answer", body);
   attachMic(answer);
   answer.oninput = () => { m.answer = answer.value; };
@@ -1039,6 +1057,7 @@ function renderCustomQuestion(body, q) {
     const r = await api("ai/custom", { method: "POST", body: { language: S.draft.language, purpose: m.purpose || m.question || "", answer: answer.value } });
     m.html = r.html;
     touch();
+    renderCustomQuestion(body, q);
     if (r.problems?.length) notify("He ajustado el módulo para que cumpla el marco de marca.");
   });
 }

@@ -229,3 +229,10 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .tweak-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
 .tweak-list li { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 6px 6px 6px 10px; font-size: 13px; }
 .tweak-list li span { flex: 1; }
+
+/* Custom modules edited in place */
+.custom-area { min-height: 120px; max-height: 520px; overflow: auto; font-family: Arial, Helvetica, sans-serif; }
+.custom-area table { max-width: 100%; }
+.custom-area img { max-width: 100%; height: auto; }
+.rebuild { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.rebuild summary { cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 12px; }
