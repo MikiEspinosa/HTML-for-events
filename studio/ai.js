@@ -201,6 +201,7 @@ export function createAi({ getClient, buildRequest, extractText }) {
         "Brand framework, mandatory: tables for layout, inline styles only, Arial, sizes from 13 to 28 px, colours only #FF2800 (red), #000000, #1A1A1A, #666666, #F5F5F5, #E6E6E6 and #FFFFFF.",
         "Allowed tags: table, tr, td, p, h2, h3, strong, em, br, ul, li, a, img, span, div, hr. No scripts, no classes, no external CSS, no background images.",
         "Links and images must use https URLs given by the user. Do not invent URLs.",
+        "When the block needs an image and the user gave no URL, leave its place as a table cell whose only content is the text [IMAGEN], with the width the image should have; the user fills it in the editor. Do not draw grey boxes or fixed heights for images.",
         "Return JSON {html}.",
         rulesFor(language),
       ].join("\n");

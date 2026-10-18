@@ -231,8 +231,13 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .tweak-list li span { flex: 1; }
 
 /* Custom modules edited in place */
-.custom-area { min-height: 120px; max-height: 520px; overflow: auto; font-family: Arial, Helvetica, sans-serif; }
-.custom-area table { max-width: 100%; }
-.custom-area img { max-width: 100%; height: auto; }
+.field, .custom-rich { min-width: 0; }
+.custom-viewport { overflow: hidden; max-height: 560px; overflow-y: auto; }
+.custom-area { width: 556px; min-height: 120px; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+.custom-area img { cursor: pointer; }
+.custom-area img:hover { outline: 3px solid var(--red); outline-offset: -3px; }
+.custom-area.over-slot { cursor: pointer; }
+.img-pick { display: grid; gap: 8px; padding: 10px; border-bottom: 1px solid var(--line); background: var(--red-soft); }
+.img-pick input[type="url"], .img-pick input[type="text"] { border: 1px solid #CFCFCF; border-radius: 6px; padding: 7px 9px; font-size: 14px; }
 .rebuild { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
 .rebuild summary { cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 12px; }
