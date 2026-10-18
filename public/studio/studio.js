@@ -1034,20 +1034,159 @@ function addPaintWriter(body, m) {
   });
 }
 
+// The module is designed for the 556 px email column; the editor shows it at
+// that width, scaled down to fit the panel.
+const MODULE_WIDTH = 556;
+function fitCustomArea(area) {
+  const viewport = area.parentElement;
+  const fit = () => {
+    if (!area.isConnected) return observer.disconnect();
+    const zoom = Math.min(1, viewport.clientWidth / MODULE_WIDTH);
+    area.style.zoom = zoom;
+    area.dataset.zoom = zoom;
+  };
+  const observer = new ResizeObserver(fit);
+  observer.observe(viewport);
+  fit();
+}
+
+const IMAGE_SLOT = /^\s*\[?\s*(imagen|image|foto|photo)\s*\]?\s*$/i;
+
+// Cells or blocks whose only content is a placeholder word like [IMAGEN].
+function imageSlotAt(node, area) {
+  for (let el = node?.nodeType === 1 ? node : node?.parentElement; el && el !== area; el = el.parentElement) {
+    if (el.tagName === "IMG") return el;
+    if (/^(TD|TH|DIV|P|SPAN)$/.test(el.tagName) && IMAGE_SLOT.test(el.textContent) && !el.querySelector("table,img")) {
+      return el.tagName === "SPAN" || el.tagName === "P" ? (el.closest("td,th,div") || el) : el;
+    }
+  }
+  return null;
+}
+
+async function uploadImageFile(file) {
+  if (!file) return "";
+  if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) throw new Error("Sube una imagen PNG, JPG, GIF o WebP.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("La imagen supera los 5 MB.");
+  const result = await api("images", { method: "POST", raw: file, headers: { "Content-Type": file.type, "X-File-Name": encodeURIComponent(file.name) } });
+  if (result.notice) notify(result.notice);
+  return result.url;
+}
+
+// Click an image or an [IMAGEN] slot to replace it, or insert a new one at
+// the cursor with the toolbar button.
+function bindImagePicker(box, area, onChange) {
+  const pick = box.querySelector(".img-pick");
+  const urlInput = pick.querySelector(".img-url");
+  const altInput = pick.querySelector(".img-alt");
+  const drop = pick.querySelector(".drop");
+  const fileInput = drop.querySelector("input");
+  let target = null;
+  let savedRange = null;
+
+  const open = (slot) => {
+    target = slot;
+    urlInput.value = slot?.tagName === "IMG" ? slot.getAttribute("src") || "" : "";
+    altInput.value = slot?.tagName === "IMG" ? slot.getAttribute("alt") || "" : "";
+    pick.querySelector(".img-pick-title").textContent = slot ? (slot.tagName === "IMG" ? "Cambiar imagen" : "Poner imagen en el hueco") : "Insertar imagen";
+    pick.hidden = false;
+    pick.scrollIntoView({ block: "nearest" });
+  };
+  const close = () => { pick.hidden = true; target = null; };
+
+  area.addEventListener("click", (e) => {
+    const slot = imageSlotAt(e.target, area);
+    if (!slot) return;
+    e.preventDefault();
+    open(slot);
+  });
+  area.addEventListener("mouseover", (e) => {
+    const slot = imageSlotAt(e.target, area);
+    area.classList.toggle("over-slot", Boolean(slot));
+    area.title = slot ? "Haz clic para poner una imagen" : "";
+  });
+  const insert = box.querySelector("[data-img-insert]");
+  insert.addEventListener("mousedown", (e) => e.preventDefault());
+  insert.onclick = () => {
+    const sel = document.getSelection();
+    savedRange = sel.rangeCount && area.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
+    open(null);
+  };
+
+  const place = (url) => {
+    const zoom = Number(area.dataset.zoom) || 1;
+    const alt = altInput.value.trim();
+    if (target?.tagName === "IMG") {
+      target.setAttribute("src", url);
+      target.setAttribute("alt", alt);
+    } else {
+      const holder = target || null;
+      const rect = (holder || area).getBoundingClientRect();
+      const width = Math.max(40, Math.min(MODULE_WIDTH, Math.round(Number(holder?.getAttribute("width")) || rect.width / zoom)));
+      const img = `<img src="${esc(url)}" alt="${esc(alt)}" width="${width}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;">`;
+      if (holder) {
+        holder.innerHTML = img;
+        // The grey placeholder box, and the cells around it that only held
+        // the placeholder, lose their background and fixed height.
+        for (let el = holder; el && el !== area && !el.textContent.trim(); el = el.parentElement) {
+          if (!/^(TD|TH|DIV|TABLE)$/.test(el.tagName)) continue;
+          for (const prop of ["background", "background-color", "height"]) el.style.removeProperty(prop);
+          el.removeAttribute("bgcolor");
+          el.removeAttribute("height");
+        }
+      } else {
+        area.focus();
+        const sel = document.getSelection();
+        sel.removeAllRanges();
+        if (savedRange) sel.addRange(savedRange);
+        else { const r = document.createRange(); r.selectNodeContents(area); r.collapse(false); sel.addRange(r); }
+        document.execCommand("insertHTML", false, img);
+      }
+    }
+    close();
+    onChange();
+  };
+
+  pick.querySelector("[data-img-ok]").onclick = () => {
+    const url = urlInput.value.trim();
+    if (!/^https:\/\/\S+$/.test(url) && !/\/studio-uploads\//.test(url)) return notify("Sube una imagen o pega una URL que empiece por https://", { error: true });
+    place(url);
+  };
+  pick.querySelector("[data-img-cancel]").onclick = close;
+  const upload = (file) => busy(drop, async () => {
+    const url = await uploadImageFile(file);
+    if (url) place(url);
+  });
+  fileInput.onchange = () => upload(fileInput.files[0]);
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); });
+}
+
 function renderCustomQuestion(body, q) {
   const m = getModule(q.moduleId);
   const rebuild = `<label class="field"><span>Contenido para este módulo</span><div><textarea id="custom-answer" rows="6" placeholder="Escribe o dicta lo que debe contener.">${esc(m.answer || "")}</textarea></div></label>
     <button class="btn ${m.html ? "" : "primary"}" data-act="build">${m.html ? "✨ Volver a crear el módulo" : "✨ Crear el módulo"}</button>
     <p class="hint">La IA lo diseña dentro del marco de marca: colores, tipografía y estilos del IESE. Lo que no cumpla el marco se elimina.</p>`;
   body.innerHTML = `<h2>${esc(q.title)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
-    ${m.html ? `<div class="field"><span>Edita el módulo</span><small>Haz clic en cualquier texto para cambiarlo. Selecciona texto para ponerlo en negrita, cursiva o convertirlo en enlace. Para cambios de diseño usa «Ajustes finos».</small>
-      <div class="rich custom-rich" data-custom-editor>${richToolbar("", { list: false })}<div class="rich-area custom-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del módulo"></div></div></div>
+    ${m.html ? `<div class="field"><span>Edita el módulo</span><small>Haz clic en cualquier texto para cambiarlo. Selecciona texto para ponerlo en negrita, cursiva o convertirlo en enlace. Haz clic en una imagen o en el hueco «[IMAGEN]» para poner la tuya, o usa 🖼 para añadir una donde esté el cursor. Para cambios de diseño usa «Ajustes finos».</small>
+      <div class="rich custom-rich" data-custom-editor>${richToolbar('<button type="button" class="tb" data-img-insert title="Insertar imagen" aria-label="Insertar imagen">🖼</button>', { list: false })}
+        <div class="img-pick" hidden>
+          <strong class="img-pick-title">Imagen</strong>
+          <label class="drop">Arrastra una imagen o <u>súbela desde tu ordenador</u><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
+          <input type="url" class="img-url" placeholder="…o pega la URL pública (https://…)" aria-label="URL de la imagen">
+          <input type="text" class="img-alt" placeholder="Descripción de la imagen (para quien no pueda verla)" aria-label="Descripción de la imagen">
+          <div class="row"><button type="button" class="btn small primary" data-img-ok>Poner imagen</button><button type="button" class="btn small ghost" data-img-cancel>Cancelar</button></div>
+        </div>
+        <div class="custom-viewport"><div class="rich-area custom-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del módulo"></div></div></div></div>
       <details class="rebuild"><summary>Volver a crear el módulo con la IA</summary>${rebuild}</details>` : rebuild}`;
   const editor = $("[data-custom-editor]", body);
   if (editor) {
     const area = editor.querySelector(".custom-area");
     area.innerHTML = m.html;
-    bindToolbar(editor, area, () => { m.html = area.innerHTML; touch(); });
+    const save = () => { m.html = area.innerHTML; touch(); };
+    bindToolbar(editor, area, save);
+    fitCustomArea(area);
+    bindImagePicker(editor, area, save);
   }
   const answer = $("#custom-answer", body);
   attachMic(answer);

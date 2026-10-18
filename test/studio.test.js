@@ -370,3 +370,10 @@ test("the Pardot file body sends input as a JSON field and the image as the file
   assert.match(text, new RegExp(`--${boundary}\r\nContent-Disposition: form-data; name="input"\r\nContent-Type: application/json\r\n\r\n`));
   assert.doesNotMatch(text, /filename="blob"/);
 });
+
+test("custom modules keep images uploaded in simulation mode and drop other http images", () => {
+  const local = "http://localhost:4174/studio-uploads/0f8b6c2e-1d2a-4c3b-9e8f-123456789abc.png";
+  const html = sanitizeCustomHtml(`<td><img src="${local}" alt="x"><img src="http://otro.example/x.png" alt="y"></td>`);
+  assert.match(html, /studio-uploads\/0f8b6c2e/);
+  assert.doesNotMatch(html, /otro\.example/);
+});

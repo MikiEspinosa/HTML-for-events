@@ -407,7 +407,8 @@ export function sanitizeCustomHtml(input, { report } = {}) {
       let value = m[3] ?? m[4] ?? "";
       if (!ALLOWED_ATTRS.has(attr)) { if (!attr.startsWith("on")) problems.push(attr); else problems.push("evento"); continue; }
       if (attr === "href" || attr === "src") {
-        const url = safeUrl(value.replaceAll("&amp;", "&"));
+        const raw = value.replaceAll("&amp;", "&");
+        const url = attr === "src" && isLocalUpload(raw) ? new URL(raw).href : safeUrl(raw);
         if (!url) { problems.push(`${attr} no válido`); continue; }
         value = url;
       }
