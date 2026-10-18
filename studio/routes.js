@@ -169,13 +169,11 @@ async function uploadToPardot(deps, { bytes, type, name }) {
   const baseUrl = process.env.PARDOT_API_BASE_URL || "https://pi.pardot.com";
   const endpoint = new URL("/api/v5/objects/files", baseUrl);
   endpoint.searchParams.set("fields", "id,name,url");
-  const form = new FormData();
   const input = { name };
   if (process.env.PARDOT_IMAGE_FOLDER_ID) input.folderId = Number(process.env.PARDOT_IMAGE_FOLDER_ID);
-  form.set("input", new Blob([JSON.stringify(input)], { type: "application/json" }));
-  form.set("file", new Blob([bytes], { type }), name);
+  const multipart = pardotFileBody(input, { bytes, type, name });
   const headers = { Accept: "application/json", Authorization: `Bearer ${token}`, "Pardot-Business-Unit-Id": businessUnitId };
-  const response = await fetch(endpoint, { method: "POST", headers, body: form });
+  const response = await fetch(endpoint, { method: "POST", headers: { ...headers, "Content-Type": multipart.contentType }, body: multipart.body });
   let data = await readPardotJson(response);
   if (!response.ok) {
     console.error(`Pardot file upload failed: HTTP ${response.status}`, JSON.stringify(data).slice(0, 2000));
@@ -193,6 +191,22 @@ async function uploadToPardot(deps, { bytes, type, name }) {
     throw new HttpError("Pardot ha guardado la imagen pero no ha devuelto su enlace público. Búscala en Pardot > Archivos y pega aquí su URL.", 502);
   }
   return data.url;
+}
+
+// Pardot expects "input" as a plain JSON field and "file" as the file. The
+// standard FormData sends a Blob field as a file named "blob", which Pardot
+// answers with error 84, so the body is built by hand.
+export function pardotFileBody(input, { bytes, type, name }) {
+  const boundary = `----aura${randomUUID().replaceAll("-", "")}`;
+  const safeName = String(name).replace(/["\r\n]/g, "");
+  const head = (disposition, contentType) => `--${boundary}\r\nContent-Disposition: form-data; ${disposition}\r\nContent-Type: ${contentType}\r\n\r\n`;
+  const body = Buffer.concat([
+    Buffer.from(`${head('name="input"', "application/json")}${JSON.stringify(input)}\r\n`),
+    Buffer.from(head(`name="file"; filename="${safeName}"`, type)),
+    Buffer.from(bytes),
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  return { body, contentType: `multipart/form-data; boundary=${boundary}` };
 }
 
 async function readPardotJson(response) {

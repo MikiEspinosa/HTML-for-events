@@ -9,7 +9,7 @@ import { applyTexts, collectTexts, parseJsonReply } from "../studio/ai.js";
 import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
 import { captureEvent, checkCaptureUrl } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
-import { createStudioHandler, getUser, modulesForInvite } from "../studio/routes.js";
+import { createStudioHandler, getUser, modulesForInvite, pardotFileBody } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
@@ -355,4 +355,18 @@ test("image uploads to Pardot explain rejections and recover a missing URL", asy
   assert.equal(accepted.status, 201);
   assert.equal(accepted.body.url, "https://go.iese.edu/l/1/foto.png");
   assert.match(pardot.at(-1).url, /\/api\/v5\/objects\/files\/42\?fields=id%2Cname%2Curl/);
+});
+
+test("the Pardot file body sends input as a JSON field and the image as the file", async () => {
+  const { body, contentType } = pardotFileBody({ name: "foto.png" }, { bytes: new Uint8Array([137, 80, 78, 71]), type: "image/png", name: "foto.png" });
+  const boundary = contentType.match(/boundary=(.+)$/)[1];
+  const form = await new Response(body, { headers: { "content-type": contentType } }).formData();
+  assert.equal(typeof form.get("input"), "string", "input is a plain field, not a file");
+  assert.deepEqual(JSON.parse(form.get("input")), { name: "foto.png" });
+  assert.equal(form.get("file").name, "foto.png");
+  assert.equal(form.get("file").type, "image/png");
+  assert.deepEqual([...new Uint8Array(await form.get("file").arrayBuffer())], [137, 80, 78, 71]);
+  const text = body.toString("latin1");
+  assert.match(text, new RegExp(`--${boundary}\r\nContent-Disposition: form-data; name="input"\r\nContent-Type: application/json\r\n\r\n`));
+  assert.doesNotMatch(text, /filename="blob"/);
 });
