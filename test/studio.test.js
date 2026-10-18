@@ -9,7 +9,7 @@ import { applyTexts, collectTexts, parseJsonReply } from "../studio/ai.js";
 import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
 import { captureEvent, checkCaptureUrl } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
-import { createStudioHandler, getUser, modulesForInvite } from "../studio/routes.js";
+import { createStudioHandler, getUser, modulesForInvite, pardotFileForm } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
@@ -355,4 +355,18 @@ test("image uploads to Pardot explain rejections and recover a missing URL", asy
   assert.equal(accepted.status, 201);
   assert.equal(accepted.body.url, "https://go.iese.edu/l/1/foto.png");
   assert.match(pardot.at(-1).url, /\/api\/v5\/objects\/files\/42\?fields=id%2Cname%2Curl/);
+});
+
+test("images go to Pardot with input as a plain JSON field, not as a file", async () => {
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const { body, contentType } = pardotFileForm({ name: "foto.png", folderId: 7 }, { bytes: png, type: "image/png", name: "foto.png" });
+  const text = body.toString("latin1");
+  assert.match(text, /Content-Disposition: form-data; name="input"\r\nContent-Type: application\/json\r\n\r\n\{"name":"foto.png","folderId":7\}/);
+  assert.doesNotMatch(text, /filename="blob"/);
+  const form = await new Response(body, { headers: { "content-type": contentType } }).formData();
+  assert.equal(form.get("input"), '{"name":"foto.png","folderId":7}');
+  const file = form.get("file");
+  assert.equal(file.name, "foto.png");
+  assert.equal(file.type, "image/png");
+  assert.deepEqual(Buffer.from(await file.arrayBuffer()), png);
 });
