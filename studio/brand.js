@@ -281,7 +281,7 @@ const renderers = {
     const title = escapeHtml(m.title);
     const subtitle = escapeHtml(m.subtitle);
     const imageHref = safeUrl(m.imageLink);
-    const texts = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#333333;background:rgba(0,0,0,0.45);padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.red}" style="background:${BRAND.red};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}`;
+    const texts = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#333333;background:rgba(0,0,0,0.45);padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.black}" style="background:${BRAND.black};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}`;
     const cta = m.ctaLabel ? `<div style="height:20px;line-height:20px;font-size:1px;">&nbsp;</div>${button(m.ctaLabel, m.ctaUrl, { align: "left" })}` : "";
     // Links cannot nest, so with a button only the texts and the empty image
     // area above them are clickable; without one the whole image is.
