@@ -399,3 +399,8 @@ test("each draft can point the quick link icons elsewhere", async (t) => {
   const saved = await call(`drafts/${created.id}`, "PUT", { version: created.version, quickLinks: { web: " https://www.iese.edu/ ", evil: "x", app: "" } });
   assert.deepEqual(saved.body.draft.quickLinks, { web: "https://www.iese.edu/" });
 });
+
+test("the Alumni logo at the top comes from Pardot by default", () => {
+  const { html } = renderEmail(sampleDraft());
+  assert.match(html, /<img src="https:\/\/prdt\.iese\.edu\/l\/501101\/2026-10-26\/5shjlt\/501101\/1793025549md7npHks\/iese_alumni\.png" width="220" alt="IESE Alumni"/);
+});

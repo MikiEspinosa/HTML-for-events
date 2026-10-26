@@ -453,7 +453,7 @@ function textModule(m, language) {
 export function defaultAssets(baseUrl = "") {
   const base = String(baseUrl || "").replace(/\/+$/, "");
   return {
-    logoUrl: `${base}/brand/iese-alumni.png`,
+    logoUrl: "https://prdt.iese.edu/l/501101/2026-10-26/5shjlt/501101/1793025549md7npHks/iese_alumni.png",
     footerLogoUrl: "https://prdt.iese.edu/l/501101/2022-07-19/4db9sc/501101/1658218287R6lnsP09/iese_logo.png",
     icons: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, `${base}/brand/icons/${q.key}.png`])),
     quickLinks: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, ""])),
