@@ -399,3 +399,12 @@ test("each draft can point the quick link icons elsewhere", async (t) => {
   const saved = await call(`drafts/${created.id}`, "PUT", { version: created.version, quickLinks: { web: " https://www.iese.edu/ ", evil: "x", app: "" } });
   assert.deepEqual(saved.body.draft.quickLinks, { web: "https://www.iese.edu/" });
 });
+
+test("the Alumni logo and the quick link icons come from Pardot by default", () => {
+  const { html } = renderEmail(sampleDraft());
+  for (const icon of ["5shjm1/501101/1793025772RaZgqVTL/app.png", "5shjm7/501101/1793025787KSJ5ZQ5I/email.png", "5shjmb/501101/1793025789No4a54u0/search.png", "5shjmf/501101/1793025791kMZmhEDA/web.png"]) {
+    assert.ok(html.includes(`<img src="https://prdt.iese.edu/l/501101/2026-10-26/${icon}" width="48" height="48"`), icon);
+  }
+  assert.doesNotMatch(html, /\/brand\/icons\//);
+  assert.match(html, /<img src="https:\/\/prdt\.iese\.edu\/l\/501101\/2026-10-26\/5shjlt\/501101\/1793025549md7npHks\/iese_alumni\.png" width="220" alt="IESE Alumni"/);
+});

@@ -450,12 +450,20 @@ function textModule(m, language) {
   }
 }
 
-export function defaultAssets(baseUrl = "") {
-  const base = String(baseUrl || "").replace(/\/+$/, "");
+// Images in the emails must be public, so they are hosted on Pardot Files
+// rather than served by this app, which sits behind the company login.
+const ICON_URLS = {
+  app: "https://prdt.iese.edu/l/501101/2026-10-26/5shjm1/501101/1793025772RaZgqVTL/app.png",
+  email: "https://prdt.iese.edu/l/501101/2026-10-26/5shjm7/501101/1793025787KSJ5ZQ5I/email.png",
+  search: "https://prdt.iese.edu/l/501101/2026-10-26/5shjmb/501101/1793025789No4a54u0/search.png",
+  web: "https://prdt.iese.edu/l/501101/2026-10-26/5shjmf/501101/1793025791kMZmhEDA/web.png",
+};
+
+export function defaultAssets() {
   return {
-    logoUrl: `${base}/brand/iese-alumni.png`,
+    logoUrl: "https://prdt.iese.edu/l/501101/2026-10-26/5shjlt/501101/1793025549md7npHks/iese_alumni.png",
     footerLogoUrl: "https://prdt.iese.edu/l/501101/2022-07-19/4db9sc/501101/1658218287R6lnsP09/iese_logo.png",
-    icons: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, `${base}/brand/icons/${q.key}.png`])),
+    icons: { ...ICON_URLS },
     quickLinks: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, ""])),
   };
 }
