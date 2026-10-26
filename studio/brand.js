@@ -539,7 +539,9 @@ export function renderParts(draft, { assets = defaultAssets(), preview = false }
     const marker = (html.match(/ data-module-id="[^"]*" data-module-type="[^"]*"/) || [""])[0];
     add(m.id, MODULES[m.type]?.label[language] || m.type, marker ? html.replace(marker, "") : html, marker);
   }
-  add("quicklinks", FIXED_PARTS.quicklinks[language], quickLinksRow(language, assets));
+  const quickLinks = { ...assets.quickLinks };
+  for (const q of QUICK_LINKS) if (draft.quickLinks?.[q.key]) quickLinks[q.key] = draft.quickLinks[q.key];
+  add("quicklinks", FIXED_PARTS.quicklinks[language], quickLinksRow(language, { ...assets, quickLinks }), preview ? ' data-module-id="quicklinks" data-module-type="quicklinks"' : "");
   add("footer", FIXED_PARTS.footer[language], brandFooterRow(assets));
   add("legal", FIXED_PARTS.legal[language], legalRow(language));
   return { language, parts, tweaks: reports };
@@ -611,6 +613,10 @@ export function validateDraft(draft) {
   if (!draft.subject?.trim()) error(say("Falta el asunto del email.", "The subject is missing."), { field: "subject" });
   if ((draft.subject || "").length > 70) warn(say("El asunto tiene más de 70 caracteres y puede cortarse.", "The subject is over 70 characters and may be cut off."), { field: "subject" });
   if (!draft.preheader?.trim()) warn(say("Añade un texto de vista previa (preheader).", "Add a preview text (preheader)."), { field: "preheader" });
+  for (const q of QUICK_LINKS) {
+    const url = draft.quickLinks?.[q.key];
+    if (url && !safeUrl(url)) error(say(`Accesos rápidos: el enlace de «${q.label.es}» debe ser https:// o mailto:.`, `Quick links: the "${q.label.en}" link must be https:// or mailto:.`), { moduleId: "quicklinks", field: q.key });
+  }
   const template = TEMPLATES[draft.template];
   const modules = draft.modules || [];
   for (const type of template?.required || []) {

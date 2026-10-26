@@ -377,3 +377,24 @@ test("custom modules keep images uploaded in simulation mode and drop other http
   assert.match(html, /studio-uploads\/0f8b6c2e/);
   assert.doesNotMatch(html, /otro\.example/);
 });
+
+test("each draft can point the quick link icons elsewhere", async (t) => {
+  const assets = { logoUrl: "https://x/logo.png", footerLogoUrl: "https://x/iese.png", icons: { app: "https://x/1.png", email: "https://x/2.png", search: "https://x/3.png", web: "https://x/4.png" }, quickLinks: { app: "https://default.example/app", email: "", search: "", web: "https://default.example/web" } };
+  const draft = { ...sampleDraft(), quickLinks: { web: "https://www.iese.edu/alumni/eventos/", email: "mailto:alumni@iese.edu" } };
+  const { html } = renderEmail(draft, { assets });
+  assert.match(html, /href="https:\/\/default\.example\/app"/, "links not edited keep the default");
+  assert.match(html, /href="https:\/\/www\.iese\.edu\/alumni\/eventos\/"/);
+  assert.match(html, /href="mailto:alumni@iese\.edu"/);
+  assert.doesNotMatch(html, /default\.example\/web/);
+  assert.match(renderEmail(draft, { assets, preview: true }).html, /data-module-id="quicklinks"/);
+
+  const bad = validateDraft({ ...sampleDraft(), quickLinks: { app: "http://inseguro.example" } });
+  assert.deepEqual(bad.targets.errors[bad.errors.findIndex((e) => /Accesos rápidos/.test(e))], { moduleId: "quicklinks", field: "app" });
+
+  const { call } = await startStudio(t);
+  const config = await call("config");
+  assert.deepEqual(config.body.quickLinks.map((q) => q.key), ["app", "email", "search", "web"]);
+  const created = (await call("drafts", "POST", { template: "invite", language: "es" })).body.draft;
+  const saved = await call(`drafts/${created.id}`, "PUT", { version: created.version, quickLinks: { web: " https://www.iese.edu/ ", evil: "x", app: "" } });
+  assert.deepEqual(saved.body.draft.quickLinks, { web: "https://www.iese.edu/" });
+});
