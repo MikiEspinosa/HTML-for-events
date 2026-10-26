@@ -138,7 +138,7 @@ function publicBase(request, env) {
 }
 
 export function assetsFor(request, env = process.env) {
-  const assets = defaultAssets(env.BRAND_ASSET_BASE_URL || publicBase(request, env));
+  const assets = defaultAssets();
   if (env.BRAND_HEADER_LOGO_URL) assets.logoUrl = env.BRAND_HEADER_LOGO_URL;
   if (env.BRAND_FOOTER_LOGO_URL) assets.footerLogoUrl = env.BRAND_FOOTER_LOGO_URL;
   for (const q of QUICK_LINKS) {
