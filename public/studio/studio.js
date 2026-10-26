@@ -431,7 +431,7 @@ async function save() {
   const d = S.draft;
   S.saving = api(`drafts/${d.id}`, {
     method: "PUT",
-    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, hideLogo: Boolean(d.hideLogo), tweaks: d.tweaks || [], modules: d.modules, source: d.source, pardot: d.pardot },
+    body: { version: d.version, name: d.name, subject: d.subject, preheader: d.preheader, brief: d.brief, step: d.step, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, tweaks: d.tweaks || [], modules: d.modules, source: d.source, pardot: d.pardot },
   })
     .then(({ draft }) => {
       S.draft.version = draft.version;
@@ -528,7 +528,7 @@ async function refreshPreview() {
   if (!frame || !S.draft) return;
   try {
     const d = S.draft;
-    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), tweaks: d.tweaks || [], modules: d.modules } });
+    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, tweaks: d.tweaks || [], modules: d.modules } });
     const selectedCss = S.selected && document.body.dataset.step !== "review" ? `[data-module-id="${S.selected}"]>td{outline:3px solid #FF2800;outline-offset:-3px}` : "";
     const clickable = document.body.dataset.step === "editor";
     const script = clickable
@@ -1257,11 +1257,29 @@ function renderDescribe() {
   });
 }
 
+// The four icons above the footer: each draft can point them elsewhere.
+function quickLinksForm() {
+  const d = S.draft;
+  return `<h2>Accesos rápidos</h2><p class="hint">Los 4 iconos que van encima del pie. Cambia a dónde lleva cada uno en este email. Si dejas un campo vacío se usa el enlace por defecto de la app.</p>
+    ${S.config.quickLinks.map((q) => `<label class="field"><span>${esc(t(q.label))}</span>
+      <input type="text" inputmode="url" id="f-quicklinks-${q.key}" data-quick="${q.key}" value="${esc(d.quickLinks?.[q.key] || "")}" placeholder="${esc(q.url || "https://… o mailto:…")}">
+      <small>${q.url ? `Por defecto: ${esc(q.url)}` : "Sin enlace por defecto: si lo dejas vacío, el icono no lleva a ningún sitio."}</small></label>`).join("")}`;
+}
+
+function bindQuickLinks(form) {
+  const d = S.draft;
+  $$("[data-quick]", form).forEach((input) => input.addEventListener("input", () => {
+    d.quickLinks = { ...(d.quickLinks || {}), [input.dataset.quick]: input.value.trim() };
+    if (!d.quickLinks[input.dataset.quick]) delete d.quickLinks[input.dataset.quick];
+    touch();
+  }));
+}
+
 // Visual editor.
 function renderEditor() {
   setStep("editor");
   const d = S.draft;
-  if (!S.selected || !getModule(S.selected)) S.selected = d.modules[0]?.id || null;
+  if (S.selected !== "quicklinks" && (!S.selected || !getModule(S.selected))) S.selected = d.modules[0]?.id || null;
   const tpl = S.config.templates[d.template];
   const required = new Set(tpl.required);
   const sel = getModule(S.selected);
@@ -1282,14 +1300,16 @@ function renderEditor() {
           <button class="icon-btn" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
           <button class="icon-btn" data-mv="${i}|1" ${i === d.modules.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
           <button class="icon-btn" data-rm="${m.id}" ${required.has(m.type) && d.modules.filter((x) => x.type === m.type).length === 1 ? "disabled title=\"Obligatorio en esta plantilla\"" : ""} aria-label="Quitar">✕</button></li>`).join("")}
-        <li><span class="fixed">Accesos rápidos, pie de marca y texto legal (fijos)</span></li></ul>
+        <li class="${S.selected === "quicklinks" ? "selected" : ""}"><button class="name" data-sel="quicklinks">Accesos rápidos (enlaces de los 4 iconos)</button></li>
+        <li><span class="fixed">Pie de marca y texto legal (fijos)</span></li></ul>
       ${options ? `<div class="row"><select id="add-type" class="btn">${options}</select><button class="btn small" data-act="add">+ Añadir módulo</button></div>` : ""}
       <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
-      <div id="module-form">${sel ? `<h2>${esc(t(S.config.modules[sel.type].label))}</h2>${sel.type === "custom" ? "" : S.config.modules[sel.type].fields.map((f) => fieldHtml(sel, f)).join("")}` : ""}</div>
+      <div id="module-form">${S.selected === "quicklinks" ? quickLinksForm() : sel ? `<h2>${esc(t(S.config.modules[sel.type].label))}</h2>${sel.type === "custom" ? "" : S.config.modules[sel.type].fields.map((f) => fieldHtml(sel, f)).join("")}` : ""}</div>
       <div class="actions"><button class="btn ghost" data-act="back">← Preguntas</button><button class="btn primary" data-act="review">Revisar →</button></div>
     </div>${previewPane()}</div>`;
   const form = $("#module-form");
-  if (sel?.type === "custom") renderCustomQuestion(form, { moduleId: sel.id, title: t(S.config.modules.custom.label), hint: sel.purpose || "" });
+  if (S.selected === "quicklinks") bindQuickLinks(form);
+  else if (sel?.type === "custom") renderCustomQuestion(form, { moduleId: sel.id, title: t(S.config.modules.custom.label), hint: sel.purpose || "" });
   else bindFields(form, renderEditor);
   $$("[data-sel]").forEach((b) => b.onclick = () => { S.selected = b.dataset.sel; renderEditor(); });
   $$("[data-mv]").forEach((b) => b.onclick = () => { const [i, dir] = b.dataset.mv.split("|").map(Number); [d.modules[i], d.modules[i + dir]] = [d.modules[i + dir], d.modules[i]]; touch(); renderEditor(); });
@@ -1310,7 +1330,7 @@ function renderEditor() {
   $('[data-act="tweak"]').onclick = (e) => busy(e.currentTarget, async () => {
     const instruction = tweakText.value.trim();
     if (!instruction) throw new Error("Escribe o dicta primero el ajuste.");
-    const { reply, tweak } = await api("ai/tweak", { method: "POST", body: { language: d.language, template: d.template, instruction, hideLogo: Boolean(d.hideLogo), modules: d.modules, tweaks: d.tweaks || [] } });
+    const { reply, tweak } = await api("ai/tweak", { method: "POST", body: { language: d.language, template: d.template, instruction, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, modules: d.modules, tweaks: d.tweaks || [] } });
     if (!tweak) throw new Error(reply);
     d.tweaks = [...(d.tweaks || []), tweak];
     touch();
@@ -1352,6 +1372,12 @@ async function goToFix(target) {
     const el = $(`#${target.field}`);
     flash(el.closest(".field"));
     return el.focus({ preventScroll: true });
+  }
+  if (target.moduleId === "quicklinks") {
+    S.selected = "quicklinks";
+    S.focus = { id: `f-quicklinks-${target.field}` };
+    await flush();
+    return go(`#/d/${d.id}/editor`);
   }
   if (target.moduleId && getModule(target.moduleId)) {
     S.selected = target.moduleId;

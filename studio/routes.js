@@ -62,6 +62,15 @@ export function cleanModules(modules, language) {
   });
 }
 
+export function cleanQuickLinks(input) {
+  const out = {};
+  for (const q of QUICK_LINKS) {
+    const value = String(input?.[q.key] ?? "").trim().slice(0, 500);
+    if (value) out[q.key] = value;
+  }
+  return out;
+}
+
 function cleanDraftFields(input, current = {}) {
   const language = LANGUAGES.includes(input.language) ? input.language : current.language || "es";
   const fields = {};
@@ -69,6 +78,7 @@ function cleanDraftFields(input, current = {}) {
     if (input[key] !== undefined) fields[key] = String(input[key] ?? "").slice(0, key === "brief" ? 20000 : 300);
   }
   if (input.hideLogo !== undefined) fields.hideLogo = input.hideLogo === true;
+  if (input.quickLinks !== undefined) fields.quickLinks = cleanQuickLinks(input.quickLinks);
   if (input.tweaks !== undefined) fields.tweaks = cleanTweaks(input.tweaks);
   if (input.modules !== undefined) fields.modules = cleanModules(input.modules, language);
   if (input.source !== undefined && input.source && typeof input.source === "object") fields.source = JSON.parse(JSON.stringify(input.source).slice(0, 60000));
@@ -245,6 +255,7 @@ export function createStudioHandler(deps, env = process.env) {
         modules: MODULES,
         guides: GUIDE_VERSIONS,
         pardot: { campaignId: defaults.campaignId, folderId: defaults.folderId },
+        quickLinks: QUICK_LINKS.map((q) => ({ key: q.key, label: q.label, url: assetsFor(request, env).quickLinks[q.key] || "" })),
       });
     }
 
@@ -348,6 +359,7 @@ export function createStudioHandler(deps, env = process.env) {
         subject: String(body.subject || ""),
         preheader: String(body.preheader || ""),
         hideLogo: body.hideLogo === true,
+        quickLinks: cleanQuickLinks(body.quickLinks),
         modules: cleanModules(body.modules, body.language),
         tweaks: cleanTweaks(body.tweaks),
       };
@@ -409,7 +421,7 @@ export function createStudioHandler(deps, env = process.env) {
         case "tweak": {
           const instruction = String(body.instruction || "").trim().slice(0, 1000);
           if (!instruction) throw new HttpError("Escribe o dicta primero el ajuste que quieres.");
-          const draft = { template: draftLike.template, language, hideLogo: body.hideLogo === true, modules: cleanModules(body.modules, language), tweaks: cleanTweaks(body.tweaks) };
+          const draft = { template: draftLike.template, language, hideLogo: body.hideLogo === true, quickLinks: cleanQuickLinks(body.quickLinks), modules: cleanModules(body.modules, language), tweaks: cleanTweaks(body.tweaks) };
           const { parts } = renderParts(draft, { assets: assetsFor(request, env) });
           const { reply, ops } = await ai.tweakHtml({ language, instruction, parts });
           const byScope = new Map(parts.map((p) => [p.scope, p.html]));
