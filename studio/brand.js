@@ -128,7 +128,7 @@ export const TEMPLATES = {
     active: true,
     required: ["hero", "heading", "text", "event", "cta"],
     modules: ["hero", "heading", "greeting", "text", "event", "agenda", "speakers", "cta", "signature", "events"],
-    addable: ["heading", "text", "agenda", "speakers", "cta", "signature", "events", "image"],
+    addable: ["heading", "text", "agenda", "speakers", "cta", "signature", "events", "image", "custom"],
   },
   paint: {
     label: { es: "Pinta y Colorea", en: "Paint by numbers" },
