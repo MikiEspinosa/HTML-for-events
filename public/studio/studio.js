@@ -851,7 +851,7 @@ function inviteQuestions() {
   const mod = (type) => S.config.modules[type].fields;
   const pick = (type, keys) => mod(type).filter((f) => keys.includes(f.key));
   return [
-    { key: "image", type: "hero", title: "¿Qué imagen va en la cabecera?", hint: "Si la has importado del evento ya aparece aquí. Puedes cambiarla por una URL pública o subir otra.", fields: pick("hero", ["imageUrl", "imageAlt"]) },
+    { key: "image", type: "hero", title: "¿Qué imagen va en la cabecera?", hint: "Si la has importado del evento ya aparece aquí. Puedes cambiarla por una URL pública o subir otra.", fields: pick("hero", ["imageUrl", "imageAlt", "imageLink"]) },
     { key: "overlay", type: "hero", title: "¿Qué texto y qué botón van encima de la imagen?", hint: "Es lo primero que se ve. Aparece como texto real, así se lee aunque el correo bloquee las imágenes.", fields: pick("hero", ["title", "subtitle", "ctaLabel", "ctaUrl"]) },
     { key: "event", type: "event", title: "Confirma los datos del evento", hint: "Las fechas y horas se escriben solas según la guía de estilo.", fields: mod("event") },
     { key: "message", custom: renderMessageQuestion },
@@ -1078,6 +1078,7 @@ function bindImagePicker(box, area, onChange) {
   const pick = box.querySelector(".img-pick");
   const urlInput = pick.querySelector(".img-url");
   const altInput = pick.querySelector(".img-alt");
+  const linkInput = pick.querySelector(".img-link");
   const drop = pick.querySelector(".drop");
   const fileInput = drop.querySelector("input");
   let target = null;
@@ -1087,6 +1088,7 @@ function bindImagePicker(box, area, onChange) {
     target = slot;
     urlInput.value = slot?.tagName === "IMG" ? slot.getAttribute("src") || "" : "";
     altInput.value = slot?.tagName === "IMG" ? slot.getAttribute("alt") || "" : "";
+    linkInput.value = slot?.tagName === "IMG" ? slot.parentElement.closest("a")?.getAttribute("href") || "" : "";
     pick.querySelector(".img-pick-title").textContent = slot ? (slot.tagName === "IMG" ? "Cambiar imagen" : "Poner imagen en el hueco") : "Insertar imagen";
     pick.hidden = false;
     pick.scrollIntoView({ block: "nearest" });
@@ -1115,14 +1117,26 @@ function bindImagePicker(box, area, onChange) {
   const place = (url) => {
     const zoom = Number(area.dataset.zoom) || 1;
     const alt = altInput.value.trim();
+    const link = linkInput.value.trim();
     if (target?.tagName === "IMG") {
       target.setAttribute("src", url);
       target.setAttribute("alt", alt);
+      const anchor = target.parentElement.closest("a");
+      if (anchor && area.contains(anchor)) {
+        if (link) anchor.setAttribute("href", link);
+        else anchor.replaceWith(...anchor.childNodes);
+      } else if (link) {
+        const a = document.createElement("a");
+        a.setAttribute("href", link);
+        target.replaceWith(a);
+        a.append(target);
+      }
     } else {
       const holder = target || null;
       const rect = (holder || area).getBoundingClientRect();
       const width = Math.max(40, Math.min(MODULE_WIDTH, Math.round(Number(holder?.getAttribute("width")) || rect.width / zoom)));
-      const img = `<img src="${esc(url)}" alt="${esc(alt)}" width="${width}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;">`;
+      const tag = `<img src="${esc(url)}" alt="${esc(alt)}" width="${width}" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;">`;
+      const img = link ? `<a href="${esc(link)}">${tag}</a>` : tag;
       if (holder) {
         holder.innerHTML = img;
         // The grey placeholder box, and the cells around it that only held
@@ -1149,6 +1163,7 @@ function bindImagePicker(box, area, onChange) {
   pick.querySelector("[data-img-ok]").onclick = () => {
     const url = urlInput.value.trim();
     if (!/^https:\/\/\S+$/.test(url) && !/\/studio-uploads\//.test(url)) return notify("Sube una imagen o pega una URL que empiece por https://", { error: true });
+    if (linkInput.value.trim() && !/^https:\/\/\S+$/.test(linkInput.value.trim())) return notify("El enlace de la imagen debe empezar por https://", { error: true });
     place(url);
   };
   pick.querySelector("[data-img-cancel]").onclick = close;
@@ -1175,6 +1190,7 @@ function renderCustomQuestion(body, q) {
           <label class="drop">Arrastra una imagen o <u>súbela desde tu ordenador</u><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label>
           <input type="url" class="img-url" placeholder="…o pega la URL pública (https://…)" aria-label="URL de la imagen">
           <input type="text" class="img-alt" placeholder="Descripción de la imagen (para quien no pueda verla)" aria-label="Descripción de la imagen">
+          <input type="url" class="img-link" placeholder="Enlace al hacer clic en la imagen (opcional, https://…)" aria-label="Enlace al hacer clic en la imagen">
           <div class="row"><button type="button" class="btn small primary" data-img-ok>Poner imagen</button><button type="button" class="btn small ghost" data-img-cancel>Cancelar</button></div>
         </div>
         <div class="custom-viewport"><div class="rich-area custom-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del módulo"></div></div></div></div>

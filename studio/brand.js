@@ -26,6 +26,7 @@ export const MODULES = {
     fields: [
       { key: "imageUrl", kind: "image", label: { es: "Imagen de cabecera", en: "Header image" } },
       { key: "imageAlt", kind: "text", label: { es: "Descripción de la imagen", en: "Image description" } },
+      { key: "imageLink", kind: "url", label: { es: "Enlace al hacer clic en la imagen (opcional)", en: "Link when the image is clicked (optional)" } },
       { key: "title", kind: "text", ai: true, label: { es: "Texto sobre la imagen", en: "Text over the image" } },
       { key: "subtitle", kind: "text", ai: true, label: { es: "Texto destacado (por ejemplo, la fecha)", en: "Highlighted text (for example, the date)" } },
       { key: "ctaLabel", kind: "text", label: { es: "Texto del botón", en: "Button text" } },
@@ -72,6 +73,7 @@ export const MODULES = {
           { key: "name", kind: "text", label: { es: "Nombre", en: "Name" } },
           { key: "role", kind: "text", label: { es: "Cargo", en: "Position" } },
           { key: "imageUrl", kind: "image", label: { es: "Foto (opcional)", en: "Photo (optional)" } },
+          { key: "link", kind: "url", label: { es: "Enlace al hacer clic en la foto (opcional)", en: "Link when the photo is clicked (optional)" } },
         ] },
     ],
   },
@@ -110,7 +112,7 @@ export const MODULES = {
     fields: [
       { key: "imageUrl", kind: "image", label: { es: "Imagen", en: "Image" } },
       { key: "imageAlt", kind: "text", label: { es: "Descripción de la imagen", en: "Image description" } },
-      { key: "url", kind: "url", label: { es: "Enlace (opcional)", en: "Link (optional)" } },
+      { key: "url", kind: "url", label: { es: "Enlace al hacer clic en la imagen (opcional)", en: "Link when the image is clicked (optional)" } },
     ],
   },
   custom: {
@@ -278,7 +280,13 @@ const renderers = {
     const src = imageSrc(m.imageUrl, ctx);
     const title = escapeHtml(m.title);
     const subtitle = escapeHtml(m.subtitle);
-    const overlay = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#333333;background:rgba(0,0,0,0.45);padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.red}" style="background:${BRAND.red};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}${m.ctaLabel ? `<div style="height:20px;line-height:20px;font-size:1px;">&nbsp;</div>${button(m.ctaLabel, m.ctaUrl, { align: "left" })}` : ""}`;
+    const imageHref = safeUrl(m.imageLink);
+    const texts = `${title ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#333333;background:rgba(0,0,0,0.45);padding:10px 14px;font-family:${BRAND.font};font-size:28px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${title}</td></tr></table>` : ""}${subtitle ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr><td bgcolor="${BRAND.red}" style="background:${BRAND.red};padding:6px 12px;font-family:${BRAND.font};font-size:20px;line-height:1.2;font-weight:bold;color:${BRAND.white};">${subtitle}</td></tr></table>` : ""}`;
+    const cta = m.ctaLabel ? `<div style="height:20px;line-height:20px;font-size:1px;">&nbsp;</div>${button(m.ctaLabel, m.ctaUrl, { align: "left" })}` : "";
+    // Links cannot nest, so with a button only the texts and the empty image
+    // area above them are clickable; without one the whole image is.
+    const linked = (content, minHeight) => `<a href="${escapeHtml(imageHref)}" style="display:block;text-decoration:none;color:${BRAND.white};${minHeight ? `min-height:${minHeight}px;` : ""}">${content || "&nbsp;"}</a>`;
+    const overlay = imageHref ? (cta ? `${linked(texts)}${cta}` : linked(texts, 256)) : `${texts}${cta}`;
     if (!src) {
       return row(`<div style="background:${BRAND.black};padding:32px;">${overlay}</div>`, { padding: "0", id: m.id, type: "hero" });
     }
@@ -327,7 +335,9 @@ const renderers = {
     if (!items.length) return "";
     const rows = items.map((i) => {
       const src = imageSrc(i.imageUrl, ctx);
-      const photo = src ? `<td valign="top" width="76" style="padding:0 16px 16px 0;"><img src="${escapeHtml(src)}" width="64" height="64" alt="${escapeHtml(i.name)}" style="display:block;width:64px;height:64px;border-radius:32px;object-fit:cover;border:0;"></td>` : "";
+      const img = `<img src="${escapeHtml(src)}" width="64" height="64" alt="${escapeHtml(i.name)}" style="display:block;width:64px;height:64px;border-radius:32px;object-fit:cover;border:0;">`;
+      const href = safeUrl(i.link);
+      const photo = src ? `<td valign="top" width="76" style="padding:0 16px 16px 0;">${href ? `<a href="${escapeHtml(href)}">${img}</a>` : img}</td>` : "";
       return `<tr>${photo}<td valign="top" style="padding:0 0 16px;font-family:${BRAND.font};font-size:15px;line-height:1.45;color:${BRAND.ink};"><strong>${escapeHtml(i.name)}</strong>${i.role ? `<br><span style="color:${BRAND.grey};">${escapeHtml(i.role)}</span>` : ""}</td></tr>`;
     }).join("");
     return row(`${sectionTitle(m.title || COPY[ctx.language].speakersTitle)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>`, { padding: "16px 32px 16px", id: m.id, type: "speakers" });
@@ -646,6 +656,7 @@ export function validateDraft(draft) {
       else checkImage(m.imageUrl, say("la imagen", "the image"), "imageUrl");
       if (m.ctaLabel && !m.ctaUrl) error(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`), at("ctaUrl"));
       checkUrl(m.ctaUrl, say("el enlace del botón", "the button link"), "ctaUrl");
+      checkUrl(m.imageLink, say("el enlace de la imagen", "the image link"), "imageLink");
     }
     if (m.type === "cta") {
       if (!m.url) error(say(`${name}: el botón no tiene enlace.`, `${name}: the button has no link.`), at("url"));
@@ -663,6 +674,9 @@ export function validateDraft(draft) {
       else checkImage(m.imageUrl, say("la imagen", "the image"), "imageUrl");
       if (m.imageUrl && !m.imageAlt) warn(say(`${name}: describe la imagen para quien no pueda verla.`, `${name}: describe the image for people who cannot see it.`), at("imageAlt"));
       checkUrl(m.url, say("el enlace", "the link"), "url");
+    }
+    if (m.type === "speakers") {
+      (m.items || []).forEach((item, i) => checkUrl(item.link, say("el enlace de una foto", "a photo link"), `items.${i}.link`));
     }
     if (m.type === "events") {
       (m.items || []).forEach((item, i) => checkUrl(item.url, say("un enlace de evento", "an event link"), `items.${i}.url`));

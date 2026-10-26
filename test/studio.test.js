@@ -408,3 +408,26 @@ test("the Alumni logo and the quick link icons come from Pardot by default", () 
   assert.doesNotMatch(html, /\/brand\/icons\//);
   assert.match(html, /<img src="https:\/\/prdt\.iese\.edu\/l\/501101\/2026-10-26\/5shjlt\/501101\/1793025549md7npHks\/iese_alumni\.png" width="220" alt="IESE Alumni"/);
 });
+
+test("images the user edits can link somewhere when clicked", () => {
+  const draft = sampleDraft();
+  draft.modules[0].imageLink = "https://www.iese.edu/alumni/";
+  draft.modules.push({ id: "mspeak0001", type: "speakers", title: "Ponentes", items: [{ name: "Ana Pérez", role: "Profesora", imageUrl: "https://example.com/ana.jpg", link: "https://www.iese.edu/faculty/ana/" }] });
+  draft.modules.push({ id: "mimage0001", type: "image", imageUrl: "https://example.com/foto.jpg", imageAlt: "Foto", url: "https://www.iese.edu/evento/" });
+  const { html } = renderEmail(draft);
+  assert.match(html, /<a href="https:\/\/www\.iese\.edu\/alumni\/" style="display:block;[^"]*">[\s\S]*MBA Networking/, "header texts and image area link to the image link");
+  assert.equal((html.match(/<a [^>]*>(?:(?!<\/a>)[\s\S])*<a /g) || []).length, 0, "links are never nested");
+  assert.match(html, /<a href="https:\/\/apply\.iese\.edu\/x\/" style="display:inline-block/, "the header button keeps its own link");
+  assert.match(html, /<a href="https:\/\/www\.iese\.edu\/faculty\/ana\/"><img src="https:\/\/example\.com\/ana\.jpg"/);
+  assert.match(html, /<a href="https:\/\/www\.iese\.edu\/evento\/"><img src="https:\/\/example\.com\/foto\.jpg"/);
+
+  const noButton = sampleDraft();
+  Object.assign(noButton.modules[0], { imageLink: "https://www.iese.edu/alumni/", ctaLabel: "" });
+  assert.match(renderEmail(noButton).html, /min-height:256px;/, "without a button the whole image is clickable");
+
+  draft.modules[0].imageLink = "http://inseguro.example";
+  draft.modules.at(-2).items[0].link = "javascript:alert(1)";
+  const { errors, targets } = validateDraft(draft);
+  assert.deepEqual(targets.errors[errors.findIndex((e) => /enlace de la imagen/.test(e))], { moduleId: "mhero00001", field: "imageLink" });
+  assert.deepEqual(targets.errors[errors.findIndex((e) => /enlace de una foto/.test(e))], { moduleId: "mspeak0001", field: "items.0.link" });
+});
