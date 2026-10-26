@@ -202,6 +202,7 @@ test("the API creates, saves, translates and publishes a draft", async (t) => {
   const { call, dir, calls } = await startStudio(t);
   const config = await call("config");
   assert.equal(config.body.templates.calendar.active, false);
+  assert.ok(config.body.templates.invite.addable.includes("custom"), "custom modules can be added to an invitation");
   assert.equal(config.body.brand.red, BRAND.red);
 
   assert.equal((await call("drafts", "POST", { template: "newsletter" })).status, 400);
