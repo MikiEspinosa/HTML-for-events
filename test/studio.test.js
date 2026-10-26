@@ -55,6 +55,7 @@ test("rendered emails use the brand red, the Alumni logo and the fixed parts", (
   assert.match(html, /gdpr@iese.edu/);
   assert.doesNotMatch(html, /A Way to|A Mark|A World/, "the footer keeps only the logo on the red band");
   assert.match(html, /background:rgba\(0,0,0,0\.45\)/, "the text over the image sits on a translucent box");
+  assert.match(html, /<td bgcolor="#000000" style="background:#000000;padding:6px 12px;[^>]*>8 de octubre</, "the highlighted text over the header sits on black");
   assert.equal((html.match(/x\/[1-4]\.png/g) || []).length, 4);
   assert.doesNotMatch(html, /data-module-id/);
   assert.match(html, /8 de octubre del 2026/);
