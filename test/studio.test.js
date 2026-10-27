@@ -7,7 +7,7 @@ import test from "node:test";
 import { parseIeseLandingHtml } from "../server.js";
 import { applyTexts, collectTexts, parseJsonReply } from "../studio/ai.js";
 import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
-import { captureEvent, checkCaptureUrl } from "../studio/capture.js";
+import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
 import { createStudioHandler, getUser, modulesForInvite, pardotFileBody } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
@@ -431,4 +431,16 @@ test("images the user edits can link somewhere when clicked", () => {
   const { errors, targets } = validateDraft(draft);
   assert.deepEqual(targets.errors[errors.findIndex((e) => /enlace de la imagen/.test(e))], { moduleId: "mhero00001", field: "imageLink" });
   assert.deepEqual(targets.errors[errors.findIndex((e) => /enlace de una foto/.test(e))], { moduleId: "mspeak0001", field: "items.0.link" });
+});
+
+test("event pages with large embedded images and styles are still read", async () => {
+  const image = `data:image/png;base64,${"A".repeat(6 * 1024 * 1024)}`;
+  const page = `<html><head><style>${".x{color:red}".repeat(100000)}</style></head><body><img src="${image}"><h1>MBA Reunion</h1><script>var calendar_date = "2027-05-28";</script></body></html>`;
+  const fetchImpl = async () => new Response(page, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+  const { html } = await fetchPage("https://apply.iese.edu/bcn-2-27/?utm_source=outlook", { fetchImpl });
+  assert.ok(html.length < 1024, "embedded images and styles are dropped");
+  assert.match(html, /<h1>MBA Reunion<\/h1>/);
+  assert.match(html, /calendar_date = "2027-05-28"/, "scripts stay, the date is read from them");
+  const huge = async () => new Response(`<p>${"x".repeat(6 * 1024 * 1024)}</p>`, { status: 200, headers: { "content-type": "text/html" } });
+  await assert.rejects(fetchPage("https://apply.iese.edu/x/", { fetchImpl: huge }), /demasiado grande/);
 });

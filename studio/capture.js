@@ -45,11 +45,39 @@ export async function fetchPage(value, { fetchImpl = fetch, hosts = allowedHosts
     }
     if (!response.ok) throw new CaptureError(`No se pudo abrir la página (HTTP ${response.status}).`, 502);
     if (!(response.headers.get("content-type") || "").includes("text/html")) throw new CaptureError("El enlace no es una página web.");
-    const html = await response.text();
+    const raw = await response.text();
+    if (raw.length > 40 * 1024 * 1024) throw new CaptureError("La página es demasiado grande.");
+    const html = slimPage(raw);
     if (html.length > 5 * 1024 * 1024) throw new CaptureError("La página es demasiado grande.");
     return { html, url: url.toString() };
   }
   throw new CaptureError("No se pudo abrir la página.", 502);
+}
+
+// Event pages can embed images and fonts as base64 and carry large style and
+// SVG blocks. None of that is read, so drop it before checking the size.
+export function slimPage(html) {
+  return dropBase64(html
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, ""));
+}
+
+// A scan instead of a regex: a regex over megabytes of base64 overflows the stack.
+function dropBase64(html) {
+  const isBase64 = (code) => (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || (code >= 47 && code <= 57) || code === 43 || code === 61 || code === 10 || code === 13 || code === 32;
+  let out = "";
+  let from = 0;
+  for (let at = html.indexOf(";base64,"); at !== -1; at = html.indexOf(";base64,", from)) {
+    let end = at + 8;
+    while (end < html.length && isBase64(html.charCodeAt(end))) end += 1;
+    if (end - at > 200) {
+      out += `${html.slice(from, at)};base64,`;
+    } else {
+      out += html.slice(from, end);
+    }
+    from = end;
+  }
+  return out + html.slice(from);
 }
 
 // Visible text of the page, without navigation, scripts or forms.
