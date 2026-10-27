@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { AREAS, areaOf, areaSettings, areasFor, createUsers } from "./access.js";
 import { createAi, applyTexts, collectTexts } from "./ai.js";
 import { BRAND, COPY, LANGUAGES, MODULES, QUICK_LINKS, TEMPLATES, cleanTweaks, defaultAssets, isSafeTweakHtml, renderEmail, renderParts, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "./brand.js";
 import { captureEvent } from "./capture.js";
@@ -137,9 +138,16 @@ function publicBase(request, env) {
   return `${proto}://${request.headers.host || "localhost"}`;
 }
 
-export function assetsFor(request, env = process.env) {
+export function assetsFor(request, env = process.env, area = "alumni") {
   const assets = defaultAssets();
-  if (env.BRAND_HEADER_LOGO_URL) assets.logoUrl = env.BRAND_HEADER_LOGO_URL;
+  const settings = areaSettings(area, env);
+  if (areaOf(area) === "alumni") {
+    if (settings.logoUrl || env.BRAND_HEADER_LOGO_URL) assets.logoUrl = settings.logoUrl || env.BRAND_HEADER_LOGO_URL;
+  } else {
+    // No Alumni logo on another area's emails: no logo until one is set.
+    assets.logoUrl = settings.logoUrl;
+  }
+  assets.logoAlt = AREAS[areaOf(area)].logoAlt;
   if (env.BRAND_FOOTER_LOGO_URL) assets.footerLogoUrl = env.BRAND_FOOTER_LOGO_URL;
   for (const q of QUICK_LINKS) {
     const url = env[`QUICK_LINK_${q.key.toUpperCase()}_URL`];
@@ -231,6 +239,7 @@ async function readPardotJson(response) {
 export function createStudioHandler(deps, env = process.env) {
   const dataDir = env.STUDIO_DATA_DIR || path.join(deps.rootDir, "data");
   const store = deps.store || createStore(dataDir);
+  const users = deps.users || createUsers(dataDir, env);
   const ai = deps.ai || createAi({ getClient: deps.getAiClient, buildRequest: deps.buildAiRequest, extractText: deps.extractAiText });
   const dryRun = () => deps.isDryRun();
   const published = new Map();
@@ -239,15 +248,46 @@ export function createStudioHandler(deps, env = process.env) {
     return store.findExamples({ template: draft.template, language: draft.language });
   }
 
+  // Pardot campaign and folder of an area; the app defaults when not set.
+  function pardotDefaults(area) {
+    const defaults = deps.runtimeDefaults();
+    const settings = areaSettings(area, env);
+    return { campaignId: settings.campaignId || defaults.campaignId, folderId: settings.folderId || defaults.folderId };
+  }
+
+  async function adminUsers() {
+    const [list, stats] = await Promise.all([users.list(), store.stats()]);
+    const empty = { drafts: 0, published: 0, alumni: 0, programa: 0, lastActivity: "" };
+    const rows = list.map((u) => {
+      const s = stats[u.key] || empty;
+      return {
+        key: u.key, name: u.name || "", email: u.email || "", access: u.access, admin: u.admin, owner: u.owner,
+        firstSeen: u.firstSeen || "", lastSeen: u.lastSeen || "",
+        created: Math.max(Number(u.created) || 0, s.drafts), drafts: s.drafts,
+        published: Math.max(Number(u.published) || 0, s.published),
+        alumni: s.alumni, programa: s.programa, lastActivity: s.lastActivity,
+      };
+    });
+    // Authors of drafts from before people were recorded: named on their next visit.
+    for (const [key, s] of Object.entries(stats)) {
+      if (list.some((u) => u.key === key)) continue;
+      rows.push({ key, name: "", email: "", access: null, admin: false, owner: false, firstSeen: "", lastSeen: "", created: s.drafts, ...s, unknown: true });
+    }
+    return rows.sort((a, b) => (b.lastSeen || b.lastActivity).localeCompare(a.lastSeen || a.lastActivity));
+  }
+
   async function route(request, response, url) {
     const user = getUser(request, env);
+    // Without sign-in (local development) the single local user may do everything.
+    const access = user.id === "local-user" ? { admin: true, owner: true, access: "ambos", areas: areasFor("ambos") } : await users.visit(user);
     const parts = url.pathname.replace(/^\/api\/studio\/?/, "").split("/").filter(Boolean);
     const method = request.method;
 
     if (method === "GET" && parts[0] === "config") {
       const defaults = deps.runtimeDefaults();
       return send(response, 200, {
-        user: { name: user.name, email: user.email },
+        user: { name: user.name, email: user.email, admin: access.admin, areas: access.areas },
+        areas: Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, { label: a.label, logo: Boolean(assetsFor(request, env, k).logoUrl) }])),
         ai: ai.available(),
         dryRun: dryRun(),
         brand: BRAND,
@@ -259,6 +299,17 @@ export function createStudioHandler(deps, env = process.env) {
       });
     }
 
+    if (parts[0] === "admin") {
+      if (!access.admin) throw new HttpError("Solo los administradores pueden ver esto.", 403);
+      if (parts[1] === "users" && !parts[2] && method === "GET") return send(response, 200, { users: await adminUsers() });
+      if (parts[1] === "users" && /^[a-f0-9]{24}$/.test(parts[2] || "") && method === "PUT") {
+        const body = await readJson(request);
+        await users.update(parts[2], { access: body.access, admin: body.admin });
+        return send(response, 200, { users: await adminUsers() });
+      }
+      throw new HttpError("Ruta no encontrada.", 404);
+    }
+
     if (parts[0] === "drafts") {
       const id = parts[1];
       if (!id && method === "GET") return send(response, 200, { drafts: await store.listDrafts(user.id) });
@@ -266,9 +317,11 @@ export function createStudioHandler(deps, env = process.env) {
         const body = await readJson(request);
         if (!TEMPLATES[body.template]?.active) throw new HttpError("Esta plantilla todavía no está disponible.");
         const language = LANGUAGES.includes(body.language) ? body.language : "es";
-        const defaults = deps.runtimeDefaults();
+        const area = body.area === undefined ? access.areas[0] : String(body.area);
+        if (!AREAS[area] || !access.areas.includes(area)) throw new HttpError("No tienes acceso a esta área. Pídeselo a un administrador.", 403);
         const draft = await store.createDraft(user.id, {
           template: body.template,
+          area,
           language,
           name: String(body.name || TEMPLATES[body.template].label[language]).slice(0, 300),
           subject: "",
@@ -276,8 +329,9 @@ export function createStudioHandler(deps, env = process.env) {
           brief: "",
           step: "start",
           modules: body.template === "invite" ? modulesForInvite(language) : [],
-          pardot: { campaignId: defaults.campaignId, folderId: defaults.folderId },
+          pardot: pardotDefaults(area),
         });
+        await users.count(user.id, "created");
         return send(response, 201, { draft });
       }
       if (id && !parts[2] && method === "GET") return send(response, 200, { draft: await store.getDraft(user.id, id) });
@@ -295,6 +349,7 @@ export function createStudioHandler(deps, env = process.env) {
         const source = await store.getDraft(user.id, id);
         const copy = { ...source, name: `${source.name} (copia)`, publishedAt: null, pardotResult: null, modules: cleanModules(source.modules, source.language).map((m) => ({ ...m, id: newModuleId() })) };
         delete copy.id;
+        await users.count(user.id, "created");
         return send(response, 201, { draft: await store.createDraft(user.id, copy) });
       }
       if (id && parts[2] === "translate" && method === "POST") {
@@ -310,11 +365,12 @@ export function createStudioHandler(deps, env = process.env) {
         });
         const fields = { ...translated, language: target, name: `${source.name} (${target.toUpperCase()})`, publishedAt: null, pardotResult: null, translatedFrom: source.id };
         delete fields.id;
+        await users.count(user.id, "created");
         return send(response, 201, { draft: await store.createDraft(user.id, fields) });
       }
       if (id && parts[2] === "export" && method === "POST") {
         const draft = await store.getDraft(user.id, id);
-        const rendered = renderEmail(draft, { assets: assetsFor(request, env) });
+        const rendered = renderEmail(draft, { assets: assetsFor(request, env, draft.area) });
         return send(response, 200, { ...rendered, validation: withTweakWarnings(validateDraft(draft), rendered.tweaks, draft.language) });
       }
       if (id && parts[2] === "publish" && method === "POST") {
@@ -325,7 +381,7 @@ export function createStudioHandler(deps, env = process.env) {
         if (validation.errors.length) return send(response, 422, { error: "Revisa los puntos marcados antes de crear la plantilla.", validation });
         const key = `${draft.id}:${draft.version}`;
         if (published.has(key)) return send(response, 200, published.get(key));
-        const rendered = renderEmail(draft, { assets: assetsFor(request, env) });
+        const rendered = renderEmail(draft, { assets: assetsFor(request, env, draft.area) });
         const input = deps.mergeDefaultInput({
           listEmailName: draft.name,
           subject: draft.subject,
@@ -345,6 +401,7 @@ export function createStudioHandler(deps, env = process.env) {
           await store.addExample(saved);
           result.learned = true;
         }
+        await users.count(user.id, "published");
         result.draft = saved;
         published.set(key, result);
         return send(response, 200, result);
@@ -363,7 +420,7 @@ export function createStudioHandler(deps, env = process.env) {
         modules: cleanModules(body.modules, body.language),
         tweaks: cleanTweaks(body.tweaks),
       };
-      const rendered = renderEmail(draft, { assets: assetsFor(request, env), preview: true });
+      const rendered = renderEmail(draft, { assets: assetsFor(request, env, areaOf(body.area)), preview: true });
       return send(response, 200, { ...rendered, validation: withTweakWarnings(validateDraft(draft), rendered.tweaks, draft.language) });
     }
 
@@ -422,7 +479,7 @@ export function createStudioHandler(deps, env = process.env) {
           const instruction = String(body.instruction || "").trim().slice(0, 1000);
           if (!instruction) throw new HttpError("Escribe o dicta primero el ajuste que quieres.");
           const draft = { template: draftLike.template, language, hideLogo: body.hideLogo === true, quickLinks: cleanQuickLinks(body.quickLinks), modules: cleanModules(body.modules, language), tweaks: cleanTweaks(body.tweaks) };
-          const { parts } = renderParts(draft, { assets: assetsFor(request, env) });
+          const { parts } = renderParts(draft, { assets: assetsFor(request, env, areaOf(body.area)) });
           const { reply, ops } = await ai.tweakHtml({ language, instruction, parts });
           const byScope = new Map(parts.map((p) => [p.scope, p.html]));
           // Keep only edits that match the current HTML exactly and stay safe;

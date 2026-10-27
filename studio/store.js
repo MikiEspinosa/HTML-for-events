@@ -60,6 +60,7 @@ export function createStore(dataDir) {
       id: draft.id,
       name: draft.name,
       template: draft.template,
+      area: draft.area || "alumni",
       language: draft.language,
       subject: draft.subject,
       updatedAt: draft.updatedAt,
@@ -117,6 +118,36 @@ export function createStore(dataDir) {
         await writeJson(file, next);
         return next;
       });
+    },
+
+    // Per author folder: how many drafts there are now, how many reached
+    // Pardot, per area, and when they last worked on one.
+    async stats() {
+      let owners = [];
+      try {
+        owners = await readdir(draftsDir);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      const out = {};
+      for (const key of owners) {
+        let files = [];
+        try {
+          files = (await readdir(path.join(draftsDir, key))).filter((f) => f.endsWith(".json"));
+        } catch {
+          continue;
+        }
+        const drafts = (await Promise.all(files.map((f) => readJson(path.join(draftsDir, key, f)).catch(() => null)))).filter(Boolean);
+        const row = { drafts: drafts.length, published: 0, alumni: 0, programa: 0, lastActivity: "" };
+        for (const d of drafts) {
+          if (d.publishedAt) row.published += 1;
+          if ((d.area || "alumni") === "programa") row.programa += 1;
+          else row.alumni += 1;
+          if ((d.updatedAt || "") > row.lastActivity) row.lastActivity = d.updatedAt;
+        }
+        out[key] = row;
+      }
+      return out;
     },
 
     async deleteDraft(userId, id) {

@@ -501,7 +501,7 @@ function legalRow(language) {
 // Each one is stored as exact find/replace operations scoped to a module id or
 // to a fixed part, and replayed on every render so the modules stay editable.
 export const FIXED_PARTS = {
-  logo: { es: "Logo IESE Alumni", en: "IESE Alumni logo" },
+  logo: { es: "Logo de cabecera", en: "Header logo" },
   quicklinks: { es: "Accesos rápidos", en: "Quick links" },
   footer: { es: "Pie de marca", en: "Brand footer" },
   legal: { es: "Texto legal", en: "Legal text" },
@@ -551,7 +551,7 @@ export function renderParts(draft, { assets = defaultAssets(), preview = false }
   const add = (scope, label, html, marker = "") => {
     if (html) parts.push({ scope, label, html: applyTweaks(html, scope, tweaks, reports), marker });
   };
-  if (!draft.hideLogo) add("logo", FIXED_PARTS.logo[language], `<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="IESE Alumni" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>`);
+  if (!draft.hideLogo && assets.logoUrl) add("logo", FIXED_PARTS.logo[language], `<tr><td style="padding:24px 32px;background:${BRAND.white};"><img src="${escapeHtml(assets.logoUrl)}" width="220" alt="${escapeHtml(assets.logoAlt || "IESE Alumni")}" style="display:block;width:220px;max-width:60%;height:auto;border:0;"></td></tr>`);
   for (const m of Array.isArray(draft.modules) ? draft.modules : []) {
     const html = renderers[m.type]?.(m, ctx) || "";
     const marker = (html.match(/ data-module-id="[^"]*" data-module-type="[^"]*"/) || [""])[0];

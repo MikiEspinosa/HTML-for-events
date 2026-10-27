@@ -67,6 +67,8 @@ Variables de entorno del estudio:
 
 - `STUDIO_DATA_DIR`: carpeta de borradores y ejemplos aprendidos (por defecto `./data`). En Azure, móntala en un volumen de Azure Files para que sobreviva a los reinicios.
 - `STUDIO_REQUIRE_LOGIN`: `true` exige usuario de Microsoft (Easy Auth de Container Apps con Microsoft Entra ID). Sin login, todos comparten el usuario «local».
+- `STUDIO_ADMIN_EMAILS`: administradores fijos, separados por comas (por defecto `maespinosa@iese.edu`). Ven el panel de usuarios y pueden dar a otros acceso a Alumni, Programa o ambos, y el rol de administrador. Quien entra por primera vez solo tiene Programa. Los usuarios se guardan en `users.json` dentro de `STUDIO_DATA_DIR`.
+- `PROGRAMA_HEADER_LOGO_URL`, `PROGRAMA_PARDOT_CAMPAIGN_ID`, `PROGRAMA_PARDOT_FOLDER_ID`: logo, campaña y carpeta de Pardot de los emails de Programa. Sin logo, esos emails salen sin logo arriba; sin campaña o carpeta, usan las de por defecto. Existen también `ALUMNI_*` con los mismos nombres.
 - `PUBLIC_BASE_URL`: URL pública de la app, para que las imágenes de marca tengan dirección absoluta en el email.
 - `BRAND_HEADER_LOGO_URL`, `BRAND_FOOTER_LOGO_URL`: otra dirección para los logos. Por defecto, los logos y los 4 iconos de accesos rápidos están en Pardot Files, para que se vean en los emails.
 - `QUICK_LINK_APP_URL`, `QUICK_LINK_EMAIL_URL`, `QUICK_LINK_SEARCH_URL`, `QUICK_LINK_WEB_URL`: destinos de los accesos rápidos.

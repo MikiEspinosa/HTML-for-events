@@ -187,7 +187,7 @@ async function startStudio(t, overrides = {}) {
     mergeDefaultInput: (input) => ({ trackerDomainId: "1", senderName: "IESE", senderEmail: "a@iese.edu", ...input }),
     buildEmailTemplatePayload: (input, rendered) => { calls.push(input); return { name: input.listEmailName, subject: input.subject, htmlMessage: rendered.html }; },
     parseLanding: parseIeseLandingHtml,
-  }, { STUDIO_DATA_DIR: dir, PUBLIC_BASE_URL: "https://studio.example" });
+  }, { STUDIO_DATA_DIR: dir, PUBLIC_BASE_URL: "https://studio.example", ...overrides.env });
   const server = http.createServer((req, res) => studio.handle(req, res));
   await new Promise((resolve) => server.listen(0, resolve));
   t.after(async () => { server.close(); await rm(dir, { recursive: true, force: true }); });
@@ -443,4 +443,42 @@ test("event pages with large embedded images and styles are still read", async (
   assert.match(html, /calendar_date = "2027-05-28"/, "scripts stay, the date is read from them");
   const huge = async () => new Response(`<p>${"x".repeat(6 * 1024 * 1024)}</p>`, { status: 200, headers: { "content-type": "text/html" } });
   await assert.rejects(fetchPage("https://apply.iese.edu/x/", { fetchImpl: huge }), /demasiado grande/);
+});
+
+test("people get Programa by default and admins choose their area", async (t) => {
+  const { call } = await startStudio(t, { env: { PROGRAMA_HEADER_LOGO_URL: "https://img.example/programa.png", PROGRAMA_PARDOT_CAMPAIGN_ID: "77", PROGRAMA_PARDOT_FOLDER_ID: "88" } });
+  const as = (email, id) => ({ "x-ms-client-principal-name": email, "x-ms-client-principal-id": id });
+  const ana = as("ana@iese.edu", "id-ana");
+  const miki = as("MAEspinosa@iese.edu", "id-miki");
+
+  const config = await call("config", "GET", undefined, ana);
+  assert.deepEqual(config.body.user.areas, ["programa"]);
+  assert.equal(config.body.user.admin, false);
+  assert.equal((await call("admin/users", "GET", undefined, ana)).status, 403);
+  assert.equal((await call("drafts", "POST", { template: "invite", language: "es", area: "alumni" }, ana)).status, 403);
+  const draft = (await call("drafts", "POST", { template: "invite", language: "es", area: "programa" }, ana)).body.draft;
+  assert.equal(draft.area, "programa");
+  assert.deepEqual(draft.pardot, { campaignId: "77", folderId: "88" });
+  const exported = await call(`drafts/${draft.id}/export`, "POST", undefined, ana);
+  assert.match(exported.body.html, /programa\.png/);
+  assert.doesNotMatch(exported.body.html, /iese_alumni\.png/);
+
+  const owner = await call("config", "GET", undefined, miki);
+  assert.equal(owner.body.user.admin, true);
+  assert.deepEqual(owner.body.user.areas, ["alumni", "programa"]);
+  const { users } = (await call("admin/users", "GET", undefined, miki)).body;
+  const row = users.find((u) => u.email === "ana@iese.edu");
+  assert.equal(row.access, "programa");
+  assert.equal(row.created, 1);
+  assert.equal(row.programa, 1);
+
+  const updated = await call(`admin/users/${row.key}`, "PUT", { access: "ambos", admin: true }, miki);
+  assert.equal(updated.body.users.find((u) => u.key === row.key).access, "ambos");
+  const after = await call("config", "GET", undefined, ana);
+  assert.deepEqual(after.body.user.areas, ["alumni", "programa"]);
+  assert.equal(after.body.user.admin, true, "an admin can make others admin");
+  assert.equal((await call("admin/users", "GET", undefined, ana)).status, 200);
+  const alumni = await call("drafts", "POST", { template: "invite", language: "es", area: "alumni" }, ana);
+  assert.equal(alumni.body.draft.pardot.campaignId, "11", "Alumni keeps the app defaults");
+  assert.equal((await call("drafts", "GET", undefined, ana)).body.drafts.length, 2, "one list with both areas");
 });

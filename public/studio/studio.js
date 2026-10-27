@@ -17,6 +17,7 @@ const S = {
   mobile: false,
   subjectOptions: [],
   plan: null,
+  area: null,
 };
 
 // ---------- helpers ----------
@@ -68,6 +69,18 @@ async function busy(button, task) {
     button?.classList.remove("busy");
   }
 }
+
+const AREA_KEY = "aura-area";
+function setArea(area) {
+  S.area = area;
+  try { sessionStorage.setItem(AREA_KEY, area); } catch { /* storage may be blocked */ }
+}
+function currentArea() {
+  if (S.area) return S.area;
+  try { return sessionStorage.getItem(AREA_KEY); } catch { return null; }
+}
+const areaLabel = (area) => S.config.areas[area || "alumni"]?.label || "IESE Alumni";
+const homeHash = () => (currentArea() ? `#/a/${currentArea()}` : "#/");
 
 function go(hash) {
   if (location.hash === hash) render();
@@ -528,7 +541,7 @@ async function refreshPreview() {
   if (!frame || !S.draft) return;
   try {
     const d = S.draft;
-    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, tweaks: d.tweaks || [], modules: d.modules } });
+    S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, tweaks: d.tweaks || [], modules: d.modules, area: d.area } });
     const selectedCss = S.selected && document.body.dataset.step !== "review" ? `[data-module-id="${S.selected}"]>td{outline:3px solid #FF2800;outline-offset:-3px}` : "";
     const clickable = document.body.dataset.step === "editor";
     const script = clickable
@@ -731,7 +744,80 @@ function setStep(step) {
 }
 
 // Home: new email and my drafts.
-async function renderHome() {
+// Entry page: the areas the person may work in, and the admin panel.
+function renderAreas() {
+  S.draft = null;
+  stepper.hidden = true;
+  document.body.dataset.step = "areas";
+  const allowed = S.config.user.areas || [];
+  const blurbs = {
+    alumni: "Emails para la comunidad de antiguos alumnos, con la marca de IESE Alumni.",
+    programa: "Emails de los programas, con su propio logo, campaña y carpeta de Pardot.",
+  };
+  const icons = { alumni: "🎓", programa: "📘" };
+  app.innerHTML = `<p class="eyebrow">A.U.R.A.</p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
+    <p class="lead">¿Para quién es el email que vas a crear?</p>
+    <div class="cards">${Object.entries(S.config.areas).map(([key, a]) => {
+      const ok = allowed.includes(key);
+      return `<button class="card area-card" data-area="${key}" ${ok ? "" : "disabled"}>${ok ? "" : '<span class="tag">Sin acceso</span>'}
+        <span class="icon">${icons[key] || "✉️"}</span><strong>${esc(a.label)}</strong><span>${esc(ok ? blurbs[key] || "" : "Pide acceso a un administrador si lo necesitas.")}</span></button>`;
+    }).join("")}</div>
+    ${S.config.user.admin ? '<div class="actions" style="justify-content:flex-start"><a class="btn" href="#/admin">⚙ Panel de administración</a></div>' : ""}`;
+  $$("[data-area]").forEach((b) => b.onclick = () => { setArea(b.dataset.area); go(`#/a/${b.dataset.area}`); });
+}
+
+// Admin panel: everyone who has used the app, their access and their activity.
+async function renderAdmin() {
+  S.draft = null;
+  stepper.hidden = true;
+  document.body.dataset.step = "admin";
+  if (!S.config.user.admin) return go("#/");
+  app.innerHTML = `<p class="empty">Cargando…</p>`;
+  let { users } = await api("admin/users");
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "—");
+  const accessOptions = [["programa", "Programa"], ["alumni", "Alumni"], ["ambos", "Ambos"]];
+  const draw = () => {
+    const known = users.filter((u) => !u.unknown);
+    const total = (k) => users.reduce((n, u) => n + (Number(u[k]) || 0), 0);
+    app.innerHTML = `<p class="eyebrow">Administración</p><h1>Usuarios de A.U.R.A.</h1>
+      <p class="lead">Elige a qué área puede entrar cada persona. Quien entra por primera vez empieza en Programa.</p>
+      <div class="stats">
+        <div><strong>${known.length}</strong><span>usuarios</span></div>
+        <div><strong>${total("created")}</strong><span>borradores creados</span></div>
+        <div><strong>${total("published")}</strong><span>enviados a Pardot</span></div>
+      </div>
+      <div class="table-wrap"><table class="users">
+        <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th>Última visita</th></tr></thead>
+        <tbody>${users.map((u) => `<tr${u.unknown ? ' class="unknown"' : ""}>
+          <td>${u.unknown ? '<span class="muted">Usuario anterior</span><div class="meta">Aparecerá con su nombre cuando vuelva a entrar</div>' : `<strong>${esc(u.name || u.email)}</strong><div class="meta">${esc(u.email)}</div>`}</td>
+          <td>${u.unknown ? "—" : `<select data-access="${u.key}" ${u.owner ? "disabled" : ""} aria-label="Acceso de ${esc(u.name || u.email)}">${accessOptions.map(([v, l]) => `<option value="${v}" ${u.access === v ? "selected" : ""}>${l}</option>`).join("")}</select>`}</td>
+          <td>${u.unknown ? "—" : `<input type="checkbox" data-admin="${u.key}" ${u.admin ? "checked" : ""} ${u.owner ? 'disabled title="Administrador fijo"' : ""} aria-label="Administrador">`}</td>
+          <td class="num">${u.created}</td>
+          <td class="num">${u.drafts}${u.drafts ? `<div class="meta">${u.alumni} Alumni · ${u.programa} Programa</div>` : ""}</td>
+          <td class="num">${u.published}</td>
+          <td>${day(u.lastSeen || u.lastActivity)}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">Todavía no ha entrado nadie.</td></tr>'}</tbody>
+      </table></div>
+      <div class="actions" style="justify-content:flex-start"><a class="btn ghost" href="#/">Volver</a></div>`;
+    const save = (key, change, el) => {
+      el.disabled = true;
+      return busy(null, async () => {
+        try {
+          ({ users } = await api(`admin/users/${key}`, { method: "PUT", body: change }));
+          notify("Guardado.");
+        } finally {
+          draw();
+        }
+      });
+    };
+    $$("[data-access]").forEach((el) => el.onchange = () => save(el.dataset.access, { access: el.value }, el));
+    $$("[data-admin]").forEach((el) => el.onchange = () => save(el.dataset.admin, { admin: el.checked }, el));
+  };
+  draw();
+}
+
+async function renderHome(area) {
+  if (!S.config.user.areas.includes(area)) return go("#/");
+  setArea(area);
   S.draft = null;
   stepper.hidden = true;
   document.body.dataset.step = "home";
@@ -739,12 +825,12 @@ async function renderHome() {
   const { drafts } = await api("drafts");
   const label = (k) => t(S.config.templates[k]?.label) || k;
   const when = (iso) => new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  app.innerHTML = `<section class="home-hero"><div><p class="eyebrow">IESE Alumni</p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
+  app.innerHTML = `<section class="home-hero"><div><p class="eyebrow">${esc(areaLabel(area))} · <a href="#/">Cambiar</a></p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
       <p class="lead">Crea un email con la marca del IESE en unos pocos pasos y llévalo a Pardot como plantilla.</p></div>
       <a class="btn primary" href="#/new">+ Crear un email</a></section>
     <h2>Mis borradores</h2>
     <div class="drafts">${drafts.length ? drafts.map((d) => `<div class="draft"><div class="grow"><div class="title">${esc(d.name || "Sin nombre")}</div>
-      <div class="meta">${esc(label(d.template))} · ${d.language === "en" ? "Inglés" : "Español"} · ${esc(when(d.updatedAt))}</div></div>
+      <div class="meta">${esc(areaLabel(d.area))} · ${esc(label(d.template))} · ${d.language === "en" ? "Inglés" : "Español"} · ${esc(when(d.updatedAt))}</div></div>
       ${d.publishedAt ? '<span class="pill ok">En Pardot</span>' : '<span class="pill">Borrador</span>'}
       <a class="btn small" href="#/d/${d.id}">Abrir</a>
       <button class="btn small ghost" data-dup="${d.id}">Duplicar</button>
@@ -756,12 +842,14 @@ async function renderHome() {
   $$("[data-del]").forEach((b) => b.onclick = async () => {
     if (await confirmDialog({ title: "¿Eliminar este borrador?", text: "No se puede deshacer. Si ya está en Pardot, la plantilla de Pardot no se toca.", yes: "Eliminar", no: "Cancelar" }) !== "yes") return;
     await busy(b, () => api(`drafts/${b.dataset.del}`, { method: "DELETE" }));
-    renderHome();
+    renderHome(area);
   });
 }
 
 // Template choice.
 function renderNew() {
+  const area = currentArea();
+  if (!area || !S.config.user.areas.includes(area)) return go("#/");
   S.draft = null;
   S.plan = null;
   stepper.hidden = true;
@@ -775,13 +863,13 @@ function renderNew() {
   };
   let chosen = "invite";
   let language = "es";
-  app.innerHTML = `<p class="eyebrow">Nuevo email</p><h1>¿Qué quieres crear?</h1><p class="lead">Cada plantilla mantiene siempre el estilo, los colores y la marca del IESE.</p>
+  app.innerHTML = `<p class="eyebrow">Nuevo email · ${esc(areaLabel(area))}</p><h1>¿Qué quieres crear?</h1><p class="lead">Cada plantilla mantiene siempre el estilo, los colores y la marca del IESE.</p>
     <div class="cards">${Object.entries(S.config.templates).map(([key, tpl]) => `<button class="card${key === chosen ? " selected" : ""}" data-tpl="${key}" ${tpl.active ? "" : "disabled"}>
       ${tpl.active ? "" : '<span class="tag">Próximamente</span>'}<span class="icon">${icons[key]}</span><strong>${esc(tpl.label.es)}</strong><span>${esc(blurbs[key])}</span></button>`).join("")}</div>
     <h2 style="margin-top:28px">¿En qué idioma?</h2>
     <div class="row" role="radiogroup"><button class="btn selected-lang" data-lang="es" aria-pressed="true">Español</button><button class="btn" data-lang="en" aria-pressed="false">English</button></div>
     <p class="hint">Un email tiene un solo idioma. Al final podrás crear la versión en el otro idioma con un clic.</p>
-    <div class="actions"><a class="btn ghost" href="#/">Cancelar</a><button class="btn primary" data-act="create">Continuar</button></div>`;
+    <div class="actions"><a class="btn ghost" href="${homeHash()}">Cancelar</a><button class="btn primary" data-act="create">Continuar</button></div>`;
   const paintLang = () => $$("[data-lang]").forEach((b) => {
     const on = b.dataset.lang === language;
     b.setAttribute("aria-pressed", on);
@@ -794,7 +882,7 @@ function renderNew() {
   });
   $$("[data-lang]").forEach((b) => b.onclick = () => { language = b.dataset.lang; paintLang(); });
   $('[data-act="create"]').onclick = (e) => busy(e.currentTarget, async () => {
-    const { draft } = await api("drafts", { method: "POST", body: { template: chosen, language } });
+    const { draft } = await api("drafts", { method: "POST", body: { template: chosen, language, area } });
     go(`#/d/${draft.id}/${FLOW[chosen][0][0]}`);
   });
 }
@@ -1229,7 +1317,7 @@ function renderDescribe() {
       ${S.config.ai ? '<button class="btn primary" data-act="plan">✨ Diseñar la estructura</button>' : '<p class="hint">La IA no está activa en este entorno.</p>'}
       <div id="plan" style="margin-top:20px"></div>
     </div>
-    <div class="panel"><h2>Se añade solo</h2><p class="hint">El logo de IESE Alumni arriba, los accesos rápidos, el pie de marca y el texto legal se añaden solos. El logo de arriba lo puedes quitar después en el editor. Los colores, la tipografía y los botones siguen la marca.</p></div></div>`;
+    <div class="panel"><h2>Se añade solo</h2><p class="hint">El logo de tu área arriba, los accesos rápidos, el pie de marca y el texto legal se añaden solos. El logo de arriba lo puedes quitar después en el editor. Los colores, la tipografía y los botones siguen la marca.</p></div></div>`;
   const ta = $("#describe");
   attachMic(ta);
   ta.oninput = () => { d.brief = ta.value; touch({ preview: false }); };
@@ -1310,7 +1398,7 @@ function renderEditor() {
           ${S.config.ai ? "" : '<small class="hint">Necesita la IA, que no está activa en este entorno.</small>'}</div>
         ${(d.tweaks || []).length ? `<ul class="tweak-list">${d.tweaks.map((tw) => `<li data-tweak="${tw.id}"><span>${esc(tw.instruction)}</span><button type="button" class="icon-btn" data-untweak="${tw.id}" aria-label="Quitar este ajuste" title="Quitar este ajuste">✕</button></li>`).join("")}</ul>` : ""}
       </section>
-      <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="name fixed-name">Logo IESE Alumni${d.hideLogo ? " (quitado)" : ""}</span>
+      <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="name fixed-name">Logo ${esc(areaLabel(d.area))}${S.config.areas[d.area || "alumni"]?.logo ? "" : " (pendiente)"}${d.hideLogo ? " (quitado)" : ""}</span>
           <button class="${d.hideLogo ? "btn small" : "icon-btn"}" data-act="logo" aria-label="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}" title="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}">${d.hideLogo ? "Volver a poner" : "✕"}</button></li>
         ${d.modules.map((m, i) => `<li class="${m.id === S.selected ? "selected" : ""}"><button class="name" data-sel="${m.id}">${esc(t(S.config.modules[m.type].label))}</button>
           <button class="icon-btn" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
@@ -1346,7 +1434,7 @@ function renderEditor() {
   $('[data-act="tweak"]').onclick = (e) => busy(e.currentTarget, async () => {
     const instruction = tweakText.value.trim();
     if (!instruction) throw new Error("Escribe o dicta primero el ajuste.");
-    const { reply, tweak } = await api("ai/tweak", { method: "POST", body: { language: d.language, template: d.template, instruction, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, modules: d.modules, tweaks: d.tweaks || [] } });
+    const { reply, tweak } = await api("ai/tweak", { method: "POST", body: { language: d.language, template: d.template, area: d.area, instruction, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, modules: d.modules, tweaks: d.tweaks || [] } });
     if (!tweak) throw new Error(reply);
     d.tweaks = [...(d.tweaks || []), tweak];
     touch();
@@ -1529,7 +1617,7 @@ function renderDone(result) {
   app.innerHTML = `<div class="panel success"><div class="big">✓</div><h1>${result.dryRun ? "Simulación completada" : "Plantilla creada en Pardot"}</h1>
     <p class="lead">${esc(result.message)}${result.learned ? " La IA tendrá en cuenta este email en próximas peticiones." : ""}</p>
     <div class="row" style="justify-content:center">${result.url ? `<a class="btn primary" href="${esc(result.url)}" target="_blank" rel="noopener">Abrir en Pardot</a>` : ""}
-      ${S.config.ai ? `<button class="btn" data-act="translate">Crear versión en ${other}</button>` : ""}<a class="btn" href="#/">Volver al inicio</a></div>
+      ${S.config.ai ? `<button class="btn" data-act="translate">Crear versión en ${other}</button>` : ""}<a class="btn" href="${homeHash()}">Volver al inicio</a></div>
     <p class="hint" style="margin-top:20px">La audiencia y el envío se configuran en Pardot.</p></div>`;
   const translate = $('[data-act="translate"]');
   if (translate) translate.onclick = () => busy(translate, async () => {
@@ -1546,6 +1634,7 @@ async function loadDraft(id) {
   await flush();
   const { draft } = await api(`drafts/${id}`);
   S.draft = draft;
+  S.area = draft.area || "alumni";
   S.plan = null;
   S.subjectOptions = [];
   S.selected = null;
@@ -1556,7 +1645,9 @@ async function render() {
   banner.hidden = true;
   const [, page, id, step, n] = location.hash.split("/");
   try {
-    if (!page) return await renderHome();
+    if (!page) return renderAreas();
+    if (page === "a" && id) return await renderHome(id);
+    if (page === "admin") return await renderAdmin();
     if (page === "new") return renderNew();
     if (page === "d" && id) {
       await loadDraft(id);
