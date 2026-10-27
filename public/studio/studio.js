@@ -773,7 +773,10 @@ async function renderAdmin() {
   document.body.dataset.step = "admin";
   if (!S.config.user.admin) return go("#/");
   app.innerHTML = `<p class="empty">Cargando…</p>`;
-  let { users } = await api("admin/users");
+  let [{ users }, { months, prices }] = await Promise.all([api("admin/users"), api("admin/usage")]);
+  const tokens = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M` : n >= 1e3 ? `${Math.round(n / 1e3).toLocaleString("es-ES")} k` : String(n || 0));
+  const usd = (n) => `${(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
+  const monthName = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "—");
   const accessOptions = [["programa", "Programa"], ["alumni", "Alumni"], ["ambos", "Ambos"]];
   const draw = () => {
@@ -785,18 +788,27 @@ async function renderAdmin() {
         <div><strong>${known.length}</strong><span>usuarios</span></div>
         <div><strong>${total("created")}</strong><span>borradores creados</span></div>
         <div><strong>${total("published")}</strong><span>enviados a Pardot</span></div>
+        <div><strong>${tokens(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].tokens : 0)}</strong><span>tokens de IA este mes</span></div>
+        <div><strong>${usd(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].cost : 0)}</strong><span>coste de IA estimado este mes</span></div>
       </div>
       <div class="table-wrap"><table class="users">
-        <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th>Última visita</th></tr></thead>
+        <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th class="num">IA este mes</th><th>Última visita</th></tr></thead>
         <tbody>${users.map((u) => u.pending ? `<tr class="unknown"><td><strong>${esc(u.email)}</strong><div class="meta">Todavía no ha entrado</div></td>
-          <td>${u.access === "alumni" ? "Alumni" : "Programa"}<div class="meta">Asignado de antemano</div></td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td>—</td></tr>` : `<tr${u.unknown ? ' class="unknown"' : ""}>
+          <td>${u.access === "alumni" ? "Alumni" : "Programa"}<div class="meta">Asignado de antemano</div></td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">—</td><td>—</td></tr>` : `<tr${u.unknown ? ' class="unknown"' : ""}>
           <td>${u.unknown ? '<span class="muted">Usuario anterior</span><div class="meta">Aparecerá con su nombre cuando vuelva a entrar</div>' : `<strong>${esc(u.name || u.email)}</strong><div class="meta">${esc(u.email)}</div>`}</td>
           <td>${u.unknown ? "—" : `<select data-access="${u.key}" ${u.owner ? "disabled" : ""} aria-label="Acceso de ${esc(u.name || u.email)}">${accessOptions.map(([v, l]) => `<option value="${v}" ${u.access === v ? "selected" : ""}>${l}</option>`).join("")}</select>`}</td>
           <td>${u.unknown ? "—" : `<input type="checkbox" data-admin="${u.key}" ${u.admin ? "checked" : ""} ${u.owner ? 'disabled title="Administrador fijo"' : ""} aria-label="Administrador">`}</td>
           <td class="num">${u.created}</td>
           <td class="num">${u.drafts}${u.drafts ? `<div class="meta">${u.alumni} Alumni · ${u.programa} Programa</div>` : ""}</td>
           <td class="num">${u.published}</td>
-          <td>${day(u.lastSeen || u.lastActivity)}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">Todavía no ha entrado nadie.</td></tr>'}</tbody>
+          <td class="num">${u.ai.month.calls ? `${tokens(u.ai.month.tokens)}<div class="meta">${usd(u.ai.month.cost)} · ${u.ai.month.calls} usos</div>` : "0"}${u.ai.total.calls > u.ai.month.calls ? `<div class="meta">Total: ${usd(u.ai.total.cost)}</div>` : ""}</td>
+          <td>${day(u.lastSeen || u.lastActivity)}</td></tr>`).join("") || '<tr><td colspan="8" class="empty">Todavía no ha entrado nadie.</td></tr>'}</tbody>
+      </table></div>
+      <h2 style="margin-top:32px">Consumo de IA por mes</h2>
+      <p class="lead">Estimado con el precio de lista del modelo (${prices.input} $ por millón de tokens de entrada y ${prices.output} $ por millón de salida). La factura real está en la consola de OpenAI o de Azure.</p>
+      <div class="table-wrap"><table class="users">
+        <thead><tr><th>Mes</th><th class="num">Usos de IA</th><th class="num">Personas</th><th class="num">Tokens entrada</th><th class="num">Tokens salida</th><th class="num">Coste estimado</th></tr></thead>
+        <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${usd(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>
       </table></div>
       <div class="actions" style="justify-content:flex-start"><a class="btn ghost" href="#/">Volver</a></div>`;
     const save = (key, change, el) => {

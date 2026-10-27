@@ -488,3 +488,41 @@ test("people get Programa by default and admins choose their area", async (t) =>
   assert.ok(rows.some((u) => u.pending && u.email === "svoss@iese.edu"), "listed people who have not come yet are shown");
   assert.ok(!rows.some((u) => u.pending && u.email === "cgarciam@iese.edu"));
 });
+
+test("each AI reply is counted to the person who asked, with an estimated cost", async (t) => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "studio-usage-"));
+  const client = { responses: { create: async () => ({ text: "Texto mejorado", usage: { input_tokens: 2000, input_tokens_details: { cached_tokens: 1000 }, output_tokens: 500 } }) } };
+  const studio = createStudioHandler({
+    rootDir: dir,
+    getAiClient: () => ({ client, model: "m", provider: "openai" }),
+    buildAiRequest: (ai, instructions, input) => ({ model: ai.model, instructions, input }),
+    extractAiText: (payload) => payload.text,
+    isDryRun: () => true,
+    runtimeDefaults: () => ({ campaignId: "11", folderId: "22" }),
+  }, { STUDIO_DATA_DIR: dir, STUDIO_ADMIN_EMAILS: "boss@iese.edu", AI_PRICE_INPUT_PER_M: "1", AI_PRICE_CACHED_PER_M: "0.1", AI_PRICE_OUTPUT_PER_M: "10" });
+  const server = http.createServer((req, res) => studio.handle(req, res));
+  await new Promise((resolve) => server.listen(0, resolve));
+  t.after(async () => { server.close(); await rm(dir, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${server.address().port}/api/studio/`;
+  const call = async (p, method, body, email) => {
+    const r = await fetch(base + p, { method, headers: { "content-type": "application/json", "x-ms-client-principal-name": email, "x-ms-client-principal-id": `id-${email}` }, body: body && JSON.stringify(body) });
+    return { status: r.status, body: await r.json() };
+  };
+
+  for (let i = 0; i < 2; i++) assert.equal((await call("ai/rewrite", "POST", { action: "improve", text: "Hola" }, "ana@iese.edu")).status, 200);
+  assert.equal((await call("admin/usage", "GET", undefined, "ana@iese.edu")).status, 403);
+
+  const { users } = (await call("admin/users", "GET", undefined, "boss@iese.edu")).body;
+  const ana = users.find((u) => u.email === "ana@iese.edu");
+  assert.equal(ana.ai.month.calls, 2);
+  assert.equal(ana.ai.month.tokens, 5000);
+  // Per call: 1000 new input at 1 $, 1000 cached at 0.1 $, 500 output at 10 $ per million.
+  assert.ok(Math.abs(ana.ai.month.cost - 2 * 0.0061) < 1e-9);
+  assert.equal(users.find((u) => u.email === "boss@iese.edu").ai.month.calls, 0);
+
+  const { months, prices } = (await call("admin/usage", "GET", undefined, "boss@iese.edu")).body;
+  assert.equal(months.length, 1);
+  assert.equal(months[0].people, 1);
+  assert.equal(months[0].input, 4000);
+  assert.equal(prices.output, 10);
+});

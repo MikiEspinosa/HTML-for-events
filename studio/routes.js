@@ -1,5 +1,6 @@
 // HTTP API of the guided studio, mounted under /api/studio/.
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,6 +11,7 @@ import { captureEvent } from "./capture.js";
 import { formatDate, formatTime } from "./format.js";
 import { GUIDE_VERSIONS } from "./rules.js";
 import { createStore, ownerKey } from "./store.js";
+import { createUsage } from "./usage.js";
 
 class HttpError extends Error {
   constructor(message, status = 400) {
@@ -240,7 +242,14 @@ export function createStudioHandler(deps, env = process.env) {
   const dataDir = env.STUDIO_DATA_DIR || path.join(deps.rootDir, "data");
   const store = deps.store || createStore(dataDir);
   const users = deps.users || createUsers(dataDir, env);
-  const ai = deps.ai || createAi({ getClient: deps.getAiClient, buildRequest: deps.buildAiRequest, extractText: deps.extractAiText });
+  const usage = deps.usage || createUsage(dataDir, env);
+  // Who made the request, so each AI reply is counted to that person.
+  const caller = new AsyncLocalStorage();
+  const countUsage = (tokens) => {
+    const userId = caller.getStore();
+    if (userId && tokens) usage.record(userId, tokens);
+  };
+  const ai = deps.ai || createAi({ getClient: deps.getAiClient, buildRequest: deps.buildAiRequest, extractText: deps.extractAiText, onUsage: countUsage });
   const dryRun = () => deps.isDryRun();
   const published = new Map();
 
@@ -256,8 +265,13 @@ export function createStudioHandler(deps, env = process.env) {
   }
 
   async function adminUsers() {
-    const [list, stats] = await Promise.all([users.list(), store.stats()]);
+    const [list, stats, spent] = await Promise.all([users.list(), store.stats(), usage.summary()]);
     const empty = { drafts: 0, published: 0, alumni: 0, programa: 0, lastActivity: "" };
+    const noAi = { month: { calls: 0, tokens: 0, cost: 0 }, total: { calls: 0, tokens: 0, cost: 0 } };
+    const aiOf = (key) => {
+      const a = spent[key] || noAi;
+      return { month: { calls: a.month.calls, tokens: a.month.tokens, cost: a.month.cost }, total: { calls: a.total.calls, tokens: a.total.tokens, cost: a.total.cost } };
+    };
     const rows = list.map((u) => {
       const s = stats[u.key] || empty;
       return {
@@ -265,17 +279,17 @@ export function createStudioHandler(deps, env = process.env) {
         firstSeen: u.firstSeen || "", lastSeen: u.lastSeen || "",
         created: Math.max(Number(u.created) || 0, s.drafts), drafts: s.drafts,
         published: Math.max(Number(u.published) || 0, s.published),
-        alumni: s.alumni, programa: s.programa, lastActivity: s.lastActivity,
+        alumni: s.alumni, programa: s.programa, lastActivity: s.lastActivity, ai: aiOf(u.key),
       };
     });
     // Authors of drafts from before people were recorded: named on their next visit.
     for (const [key, s] of Object.entries(stats)) {
       if (list.some((u) => u.key === key)) continue;
-      rows.push({ key, name: "", email: "", access: null, admin: false, owner: false, firstSeen: "", lastSeen: "", created: s.drafts, ...s, unknown: true });
+      rows.push({ key, name: "", email: "", access: null, admin: false, owner: false, firstSeen: "", lastSeen: "", created: s.drafts, ...s, ai: aiOf(key), unknown: true });
     }
     rows.sort((a, b) => (b.lastSeen || b.lastActivity).localeCompare(a.lastSeen || a.lastActivity));
     for (const p of await users.pending()) {
-      rows.push({ key: "", name: "", email: p.email, access: p.access, admin: false, owner: false, firstSeen: "", lastSeen: "", created: 0, drafts: 0, published: 0, alumni: 0, programa: 0, lastActivity: "", pending: true });
+      rows.push({ key: "", name: "", email: p.email, access: p.access, admin: false, owner: false, firstSeen: "", lastSeen: "", created: 0, drafts: 0, published: 0, alumni: 0, programa: 0, lastActivity: "", ai: noAi, pending: true });
     }
     return rows;
   }
@@ -306,6 +320,7 @@ export function createStudioHandler(deps, env = process.env) {
     if (parts[0] === "admin") {
       if (!access.admin) throw new HttpError("Solo los administradores pueden ver esto.", 403);
       if (parts[1] === "users" && !parts[2] && method === "GET") return send(response, 200, { users: await adminUsers() });
+      if (parts[1] === "usage" && !parts[2] && method === "GET") return send(response, 200, { months: await usage.months(), prices: usage.prices });
       if (parts[1] === "users" && /^[a-f0-9]{24}$/.test(parts[2] || "") && method === "PUT") {
         const body = await readJson(request);
         await users.update(parts[2], { access: body.access, admin: body.admin });
@@ -528,7 +543,8 @@ export function createStudioHandler(deps, env = process.env) {
     async handle(request, response) {
       const url = new URL(request.url, "http://localhost");
       try {
-        await route(request, response, url);
+        const userId = (() => { try { return getUser(request, env).id; } catch { return null; } })();
+        await caller.run(userId, () => route(request, response, url));
       } catch (error) {
         const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 600 ? error.status : 500;
         if (status >= 500 && !(error.status)) console.error(error);
