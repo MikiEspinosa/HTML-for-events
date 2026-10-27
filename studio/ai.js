@@ -4,6 +4,7 @@
 
 import { MODULES } from "./brand.js";
 import { rulesFor } from "./rules.js";
+import { readUsage } from "./usage.js";
 
 export class AiError extends Error {
   constructor(message, status = 502) {
@@ -38,7 +39,7 @@ function examplesBlock(examples) {
   return `\n\nApproved emails from the team. Match their tone, length and structure, not their facts:\n${shown}`;
 }
 
-export function createAi({ getClient, buildRequest, extractText }) {
+export function createAi({ getClient, buildRequest, extractText, onUsage }) {
   async function ask(instructions, input) {
     const ai = getClient();
     if (!ai) throw new AiError("La IA no está configurada en este entorno. Puedes escribir el contenido a mano.", 503);
@@ -48,6 +49,7 @@ export function createAi({ getClient, buildRequest, extractText }) {
     } catch (error) {
       throw new AiError("La IA no ha podido responder. Inténtalo de nuevo.", 502);
     }
+    if (onUsage) onUsage(readUsage(payload));
     const text = extractText(payload);
     if (!text) throw new AiError("La IA no devolvió texto.");
     return text;
