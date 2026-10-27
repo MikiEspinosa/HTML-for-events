@@ -241,3 +241,21 @@ dialog p { margin: 0; color: var(--grey); line-height: 1.5; }
 .img-pick input[type="url"], .img-pick input[type="text"] { border: 1px solid #CFCFCF; border-radius: 6px; padding: 7px 9px; font-size: 14px; }
 .rebuild { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
 .rebuild summary { cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 12px; }
+
+/* Entry page and admin panel */
+.eyebrow a { color: inherit; font-weight: normal; text-transform: none; letter-spacing: 0; }
+.area-card { min-height: 170px; }
+.stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.stats div { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; min-width: 140px; }
+.stats strong { display: block; font-size: 26px; }
+.stats span { color: var(--grey); font-size: 13px; }
+.table-wrap { overflow-x: auto; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
+table.users { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.users th, table.users td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+table.users th { font-size: 12px; color: var(--grey); font-weight: bold; white-space: nowrap; }
+table.users tr:last-child td { border-bottom: 0; }
+table.users .num { text-align: right; }
+table.users .meta { color: var(--grey); font-size: 12px; margin-top: 2px; }
+table.users tr.unknown td { color: var(--grey); }
+table.users select { font: inherit; padding: 4px 6px; }
+table.users .empty { border: 0; }
