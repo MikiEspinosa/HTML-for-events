@@ -1673,6 +1673,8 @@ async function boot() {
     return;
   }
   document.getElementById("user").textContent = S.config.user.name || "";
+  // Signed in with Microsoft: closing the session lets another account sign in.
+  document.getElementById("logout").hidden = !S.config.user.email;
   const mode = document.getElementById("mode");
   if (S.config.dryRun) { mode.hidden = false; mode.textContent = "Modo simulación"; }
   window.addEventListener("hashchange", render);
