@@ -273,7 +273,11 @@ export function createStudioHandler(deps, env = process.env) {
       if (list.some((u) => u.key === key)) continue;
       rows.push({ key, name: "", email: "", access: null, admin: false, owner: false, firstSeen: "", lastSeen: "", created: s.drafts, ...s, unknown: true });
     }
-    return rows.sort((a, b) => (b.lastSeen || b.lastActivity).localeCompare(a.lastSeen || a.lastActivity));
+    rows.sort((a, b) => (b.lastSeen || b.lastActivity).localeCompare(a.lastSeen || a.lastActivity));
+    for (const p of await users.pending()) {
+      rows.push({ key: "", name: "", email: p.email, access: p.access, admin: false, owner: false, firstSeen: "", lastSeen: "", created: 0, drafts: 0, published: 0, alumni: 0, programa: 0, lastActivity: "", pending: true });
+    }
+    return rows;
   }
 
   async function route(request, response, url) {

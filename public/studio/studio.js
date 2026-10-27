@@ -777,7 +777,7 @@ async function renderAdmin() {
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "—");
   const accessOptions = [["programa", "Programa"], ["alumni", "Alumni"], ["ambos", "Ambos"]];
   const draw = () => {
-    const known = users.filter((u) => !u.unknown);
+    const known = users.filter((u) => !u.unknown && !u.pending);
     const total = (k) => users.reduce((n, u) => n + (Number(u[k]) || 0), 0);
     app.innerHTML = `<p class="eyebrow">Administración</p><h1>Usuarios de A.U.R.A.</h1>
       <p class="lead">Elige a qué área puede entrar cada persona. Quien entra por primera vez empieza en Programa.</p>
@@ -788,7 +788,8 @@ async function renderAdmin() {
       </div>
       <div class="table-wrap"><table class="users">
         <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th>Última visita</th></tr></thead>
-        <tbody>${users.map((u) => `<tr${u.unknown ? ' class="unknown"' : ""}>
+        <tbody>${users.map((u) => u.pending ? `<tr class="unknown"><td><strong>${esc(u.email)}</strong><div class="meta">Todavía no ha entrado</div></td>
+          <td>${u.access === "alumni" ? "Alumni" : "Programa"}<div class="meta">Asignado de antemano</div></td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td>—</td></tr>` : `<tr${u.unknown ? ' class="unknown"' : ""}>
           <td>${u.unknown ? '<span class="muted">Usuario anterior</span><div class="meta">Aparecerá con su nombre cuando vuelva a entrar</div>' : `<strong>${esc(u.name || u.email)}</strong><div class="meta">${esc(u.email)}</div>`}</td>
           <td>${u.unknown ? "—" : `<select data-access="${u.key}" ${u.owner ? "disabled" : ""} aria-label="Acceso de ${esc(u.name || u.email)}">${accessOptions.map(([v, l]) => `<option value="${v}" ${u.access === v ? "selected" : ""}>${l}</option>`).join("")}</select>`}</td>
           <td>${u.unknown ? "—" : `<input type="checkbox" data-admin="${u.key}" ${u.admin ? "checked" : ""} ${u.owner ? 'disabled title="Administrador fijo"' : ""} aria-label="Administrador">`}</td>

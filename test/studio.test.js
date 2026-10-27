@@ -481,4 +481,10 @@ test("people get Programa by default and admins choose their area", async (t) =>
   const alumni = await call("drafts", "POST", { template: "invite", language: "es", area: "alumni" }, ana);
   assert.equal(alumni.body.draft.pardot.campaignId, "11", "Alumni keeps the app defaults");
   assert.equal((await call("drafts", "GET", undefined, ana)).body.drafts.length, 2, "one list with both areas");
+
+  const listed = await call("config", "GET", undefined, as("cgarciam@IESE.edu", "id-carmen"));
+  assert.deepEqual(listed.body.user.areas, ["alumni"], "people on Miki's list start in Alumni");
+  const rows = (await call("admin/users", "GET", undefined, miki)).body.users;
+  assert.ok(rows.some((u) => u.pending && u.email === "svoss@iese.edu"), "listed people who have not come yet are shown");
+  assert.ok(!rows.some((u) => u.pending && u.email === "cgarciam@iese.edu"));
 });

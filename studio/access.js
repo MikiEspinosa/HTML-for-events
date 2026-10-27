@@ -17,6 +17,14 @@ export const ACCESS = ["programa", "alumni", "ambos"];
 export const DEFAULT_ACCESS = "programa";
 const DEFAULT_ADMINS = "maespinosa@iese.edu";
 
+// Access given before the person first signs in (Miki, 2026-10-27). More can
+// be added with STUDIO_ALUMNI_EMAILS; after the first visit, the admin panel rules.
+const INITIAL_ALUMNI = [
+  "MBombardo@iese.edu", "ASlattery@iese.edu", "CGarciaM@iese.edu", "AMerce@iese.edu", "DJanssen@iese.edu",
+  "CLatouche@iese.edu", "BTorres@iese.edu", "APadierna@iese.edu", "SVoss@iese.edu", "avalenzuela@iese.edu",
+  "AMaceira@iese.edu", "BMiguel@iese.edu", "MJimenezA@iese.edu", "PHorvath@iese.edu",
+];
+
 export function areaOf(value) {
   return AREAS[value] ? value : "alumni";
 }
@@ -34,8 +42,15 @@ export function areaSettings(area, env = process.env) {
   };
 }
 
+const emailList = (value) => String(value).split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+
 function adminEmails(env) {
-  return String(env.STUDIO_ADMIN_EMAILS ?? DEFAULT_ADMINS).split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return emailList(env.STUDIO_ADMIN_EMAILS ?? DEFAULT_ADMINS);
+}
+
+export function initialAccess(email, env = process.env) {
+  const alumni = [...emailList(INITIAL_ALUMNI.join(",")), ...emailList(env.STUDIO_ALUMNI_EMAILS || "")];
+  return alumni.includes(String(email || "").toLowerCase()) ? "alumni" : DEFAULT_ACCESS;
 }
 
 export function createUsers(dataDir, env = process.env) {
@@ -96,7 +111,7 @@ export function createUsers(dataDir, env = process.env) {
       const renamed = current && ((user.email && current.email !== user.email) || (user.name && current.name !== user.name));
       if (!stale && !renamed) return view(current);
       return view(await change((users) => {
-        const record = users[key] || { key, access: DEFAULT_ACCESS, admin: false, firstSeen: now, created: 0, published: 0 };
+        const record = users[key] || { key, access: initialAccess(user.email, env), admin: false, firstSeen: now, created: 0, published: 0 };
         Object.assign(record, { email: user.email || record.email || "", name: user.name || record.name || "", lastSeen: now });
         if (!record.firstSeen) record.firstSeen = now;
         users[key] = record;
@@ -106,6 +121,13 @@ export function createUsers(dataDir, env = process.env) {
 
     async list() {
       return Object.values(await load()).map(view);
+    },
+
+    // People given access in advance who have not signed in yet.
+    async pending() {
+      const seen = new Set(Object.values(await load()).map((u) => String(u.email || "").toLowerCase()));
+      const emails = [...new Set([...emailList(INITIAL_ALUMNI.join(",")), ...emailList(env.STUDIO_ALUMNI_EMAILS || "")])];
+      return emails.filter((e) => !seen.has(e)).map((email) => ({ email, access: "alumni" }));
     },
 
     async update(key, { access, admin }) {
