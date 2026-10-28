@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { parseIeseLandingHtml } from "../server.js";
-import { applyTexts, collectTexts, parseJsonReply } from "../studio/ai.js";
+import { applyTexts, collectTexts, createAi, parseJsonReply, sharedContext } from "../studio/ai.js";
 import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
 import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
@@ -525,4 +525,20 @@ test("each AI reply is counted to the person who asked, with an estimated cost",
   assert.equal(months[0].people, 1);
   assert.equal(months[0].input, 4000);
   assert.equal(prices.output, 10);
+});
+
+test("every styled AI call starts with the same rules and examples, so they can be cached", async () => {
+  const sent = [];
+  const ai = createAi({
+    getClient: () => ({ client: { responses: { create: async (req) => { sent.push(req.input); return { text: '{"subjects":[],"preheader":"","reply":"","text":"ok"}' }; } } }, model: "m" }),
+    buildRequest: (_ai, instructions, input) => ({ input: `${instructions}\n\n${input}` }),
+    extractText: (payload) => payload.text,
+  });
+  const examples = [{ subject: "Vuelve", modules: [{ text: "Texto aprobado" }] }];
+  await ai.rewrite({ language: "es", action: "improve", text: "Hola", context: "", examples });
+  await ai.suggestSubjects({ language: "es", draft: sampleDraft(), examples });
+  await ai.chatField({ language: "es", field: "Asunto", multiline: false, text: "", messages: [{ role: "user", content: "hazlo corto" }], context: {}, examples });
+  const prefix = sharedContext({ language: "es", examples });
+  assert.ok(prefix.length > 3000, "long enough to be cached");
+  for (const input of sent) assert.ok(input.startsWith(prefix), "the shared part comes first and unchanged");
 });
