@@ -39,8 +39,20 @@ function examplesBlock(examples) {
   return `\n\nApproved emails from the team. Match their tone, length and structure, not their facts:\n${shown}`;
 }
 
+// Shared beginning of every prompt that follows the style guide.
+export function sharedContext({ language, examples }) {
+  return [
+    "You work for IESE Alumni on email communications. The style rules and approved examples below apply to every task; the task comes after them.",
+    rulesFor(language),
+  ].join("\n") + examplesBlock(examples);
+}
+
 export function createAi({ getClient, buildRequest, extractText, onUsage }) {
-  async function ask(instructions, input) {
+  // The style rules and the team's examples go first and are the same for
+  // every call in one language and template, so the provider can bill that
+  // repeated beginning as cached input (a tenth of the price).
+  async function ask(task, input, shared) {
+    const instructions = shared ? `${sharedContext(shared)}\n\nYOUR TASK NOW:\n${task}` : task;
     const ai = getClient();
     if (!ai) throw new AiError("La IA no está configurada en este entorno. Puedes escribir el contenido a mano.", 503);
     let payload;
@@ -55,8 +67,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
     return text;
   }
 
-  async function askJson(instructions, input) {
-    return parseJsonReply(await ask(`${instructions}\nReturn only one valid JSON value, with no commentary.`, input));
+  async function askJson(task, input, shared) {
+    return parseJsonReply(await ask(`${task}\nReturn only one valid JSON value, with no commentary.`, input, shared));
   }
 
   return {
@@ -79,9 +91,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         `You are a senior copywriter at IESE Alumni writing an event invitation email in ${LANGUAGE_NAME[language]}.`,
         "Base the copy on the facts and the user's notes, but write it yourself: do not copy the notes literally.",
         "Return JSON with keys: subjects (array of 3 subject lines, under 60 characters), preheader (under 90 characters), heroTitle (under 45 characters, the event name or a short hook), heroSubtitle (the date in the event format of the style guide), heading (a short title for the email body), body (2 to 4 short paragraphs separated by a blank line; you may use **bold** for key details; no greeting, no sign-off, no button text), ctaLabel (2 or 3 words).",
-        rulesFor(language),
-      ].join("\n") + examplesBlock(examples);
-      return askJson(instructions, { facts, notes });
+      ].join("\n");
+      return askJson(instructions, { facts, notes }, { language, examples });
     },
 
     async rewrite({ language, action, text, context, examples }) {
@@ -94,9 +105,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
       const instructions = [
         `You edit copy for IESE Alumni emails in ${LANGUAGE_NAME[language]}. ${tasks[action] || tasks.improve}`,
         "Keep **bold** and [label](url) markup and every link and personalization field exactly. Return only the resulting text.",
-        rulesFor(language),
-      ].join("\n") + examplesBlock(examples);
-      return (await ask(instructions, { text, context })).trim();
+      ].join("\n");
+      return (await ask(instructions, { text, context }, { language, examples })).trim();
     },
 
     // Chat attached to one text field: writes new text or edits the current one.
@@ -109,9 +119,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
           : "The field is a single line: return one line, with no markup and no line breaks.",
         "Use the facts in the email context. Never invent dates, times, places, prices, names or links. Keep links and fields like {{Recipient.FirstName}} exactly.",
         "Return JSON {reply, text}. reply is one short sentence for the user, in the language the user writes in, saying what you did or asking what you need. text is the complete new text for the field, written in the email language, or an empty string when you only answer or need more information.",
-        rulesFor(language),
-      ].join("\n") + examplesBlock(examples);
-      const result = await askJson(instructions, { currentText: text, emailContext: context, conversation: messages });
+      ].join("\n");
+      const result = await askJson(instructions, { currentText: text, emailContext: context, conversation: messages }, { language, examples });
       let next = typeof result?.text === "string" ? result.text.trim() : "";
       if (!multiline) next = next.replace(/\s*\n+\s*/g, " ");
       return { reply: String(result?.reply || "").trim(), text: next };
@@ -134,9 +143,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
       const instructions = [
         "Turn this agenda, written or dictated freely, into a list of agenda items.",
         "Return a JSON array of {time, text}. time is HH:MM in 24h format or empty when not given. text is short and follows the style rules.",
-        rulesFor(language),
       ].join("\n");
-      const items = await askJson(instructions, text);
+      const items = await askJson(instructions, text, { language });
       return Array.isArray(items) ? items.filter((i) => i && i.text).map((i) => ({ time: String(i.time || ""), text: String(i.text) })) : [];
     },
 
@@ -144,9 +152,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
       const instructions = [
         `Propose a subject line and preheader for this IESE Alumni email in ${LANGUAGE_NAME[language]}.`,
         "Return JSON with keys subjects (array of 3, under 60 characters each) and preheader (under 90 characters).",
-        rulesFor(language),
-      ].join("\n") + examplesBlock(examples);
-      return askJson(instructions, collectTexts(draft));
+      ].join("\n");
+      return askJson(instructions, collectTexts(draft), { language, examples });
     },
 
     async translate({ draft, target }) {
@@ -156,9 +163,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "Return a JSON object with exactly the same keys.",
         "Keep names of people, programs and brands, links, numbers, **bold**, [label](url) markup, HTML tags and fields like {{Recipient.FirstName}} unchanged.",
         "Dates and times must follow the target style guide.",
-        rulesFor(target),
       ].join("\n");
-      const translated = await askJson(instructions, texts);
+      const translated = await askJson(instructions, texts, { language: target });
       for (const key of Object.keys(texts)) {
         if (typeof translated[key] !== "string") throw new AiError("La traducción llegó incompleta. Inténtalo de nuevo.");
         for (const token of texts[key].match(/\{\{\{?[\w.]+\}?\}\}/g) || []) {
@@ -170,12 +176,11 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
 
     async reviewStyle({ draft }) {
       const instructions = [
-        "You check an IESE Alumni email against the style guide rules below.",
+        "You check an IESE Alumni email against the style guide rules above.",
         "Return a JSON array of issues. Each issue: {key, quote (the exact words that break a rule), rule (which rule, in Spanish, short), suggestion (the corrected words)}. Return [] when everything follows the rules.",
         "Report only real breaches of the listed rules, not taste.",
-        rulesFor(draft.language),
       ].join("\n");
-      const issues = await askJson(instructions, collectTexts(draft));
+      const issues = await askJson(instructions, collectTexts(draft), { language: draft.language });
       return Array.isArray(issues) ? issues.filter((i) => i && i.quote).slice(0, 20) : [];
     },
 
@@ -191,8 +196,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "If the user asks for something none of them covers, use type \"custom\" and describe what it should contain.",
         "The logo, quick links and footers are added automatically; never include them.",
         `Return JSON {modules: [{type, purpose, question, prefill}]} in order. question is what the app must ask the user to fill that module, in ${language === "en" ? "English" : "Spanish"}, friendly and short (for example, ask for the image URL, the text over the image, where the button goes, the ideas for the body, the agenda). prefill is an object with any field values the description already gives, using the module's field keys.`,
-      ].join("\n") + examplesBlock(examples);
-      const plan = await askJson(instructions, description);
+      ].join("\n");
+      const plan = await askJson(instructions, description, { language, examples });
       const modules = Array.isArray(plan?.modules) ? plan.modules : [];
       return modules.filter((m) => MODULES[m.type]).slice(0, 15);
     },
@@ -205,9 +210,8 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "Links and images must use https URLs given by the user. Do not invent URLs.",
         "When the block needs an image and the user gave no URL, leave its place as a table cell whose only content is the text [IMAGEN], with the width the image should have; the user fills it in the editor. Do not draw grey boxes or fixed heights for images.",
         "Return JSON {html}.",
-        rulesFor(language),
       ].join("\n");
-      const result = await askJson(instructions, { purpose, content: answer });
+      const result = await askJson(instructions, { purpose, content: answer }, { language });
       return String(result?.html || "");
     },
   };
