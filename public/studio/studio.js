@@ -71,8 +71,20 @@ async function busy(button, task) {
 }
 
 const AREA_KEY = "aura-area";
+const BRAND_LOGOS = {
+  alumni: { src: "/brand/iese-alumni.png", alt: "IESE Alumni", width: 180, height: 31 },
+  programa: { src: "/brand/iese-programs.png", alt: "IESE Programs", width: 250, height: 28 },
+};
+// The top-left logo follows the area the person is working in.
+function paintBrand(area) {
+  const logo = BRAND_LOGOS[area] || BRAND_LOGOS.alumni;
+  const img = document.querySelector(".brand img");
+  if (!img || img.getAttribute("src") === logo.src) return;
+  Object.assign(img, { src: logo.src, alt: logo.alt, width: logo.width, height: logo.height });
+}
 function setArea(area) {
   S.area = area;
+  paintBrand(area);
   try { sessionStorage.setItem(AREA_KEY, area); } catch { /* storage may be blocked */ }
 }
 function currentArea() {
@@ -1657,6 +1669,7 @@ async function loadDraft(id) {
 async function render() {
   banner.hidden = true;
   const [, page, id, step, n] = location.hash.split("/");
+  paintBrand(currentArea());
   try {
     if (!page) return renderAreas();
     if (page === "a" && id) return await renderHome(id);
@@ -1664,6 +1677,7 @@ async function render() {
     if (page === "new") return renderNew();
     if (page === "d" && id) {
       await loadDraft(id);
+      paintBrand(S.draft.area || "alumni");
       const target = step || S.draft.step || FLOW[S.draft.template][0][0];
       if (target === "start") return renderStart();
       if (target === "describe") return renderDescribe();

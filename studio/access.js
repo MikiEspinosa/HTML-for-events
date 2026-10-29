@@ -11,7 +11,7 @@ import { ownerKey } from "./store.js";
 // folder. Empty values fall back to the app defaults (Pardot) or no logo.
 export const AREAS = {
   alumni: { label: "IESE Alumni", logoAlt: "IESE Alumni", env: "ALUMNI" },
-  programa: { label: "Programa", logoAlt: "IESE Business School", env: "PROGRAMA" },
+  programa: { label: "Programa", logoAlt: "IESE Programs", env: "PROGRAMA" },
 };
 export const ACCESS = ["programa", "alumni", "ambos"];
 export const DEFAULT_ACCESS = "programa";
