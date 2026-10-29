@@ -72,12 +72,13 @@ async function busy(button, task) {
 
 const AREA_KEY = "aura-area";
 const BRAND_LOGOS = {
+  aura: { src: "/brand/iese-aura.png", alt: "IESE AURA", width: 180, height: 30 },
   alumni: { src: "/brand/iese-alumni.png", alt: "IESE Alumni", width: 180, height: 31 },
   programa: { src: "/brand/iese-programs.png", alt: "IESE Programs", width: 250, height: 28 },
 };
 // The top-left logo follows the area the person is working in.
 function paintBrand(area) {
-  const logo = BRAND_LOGOS[area] || BRAND_LOGOS.alumni;
+  const logo = BRAND_LOGOS[area] || BRAND_LOGOS.aura;
   const img = document.querySelector(".brand img");
   if (!img || img.getAttribute("src") === logo.src) return;
   Object.assign(img, { src: logo.src, alt: logo.alt, width: logo.width, height: logo.height });
@@ -1669,7 +1670,7 @@ async function loadDraft(id) {
 async function render() {
   banner.hidden = true;
   const [, page, id, step, n] = location.hash.split("/");
-  paintBrand(currentArea());
+  paintBrand(page && page !== "admin" ? currentArea() : "aura");
   try {
     if (!page) return renderAreas();
     if (page === "a" && id) return await renderHome(id);
