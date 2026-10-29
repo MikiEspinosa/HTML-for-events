@@ -9,7 +9,7 @@ import { applyTexts, collectTexts, createAi, parseJsonReply, sharedContext } fro
 import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, withTweakWarnings } from "../studio/brand.js";
 import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
-import { createStudioHandler, getUser, modulesForInvite, pardotFileBody } from "../studio/routes.js";
+import { createStudioHandler, getUser, modulesForInvite, pardotFileBody, pardotReason } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
@@ -541,4 +541,12 @@ test("every styled AI call starts with the same rules and examples, so they can 
   const prefix = sharedContext({ language: "es", examples });
   assert.ok(prefix.length > 3000, "long enough to be cached");
   for (const input of sent) assert.ok(input.startsWith(prefix), "the shared part comes first and unchanged");
+});
+
+test("Pardot's own error text is picked out for the person", () => {
+  assert.equal(pardotReason({ code: 66, message: "Invalid value for subject" }), "Invalid value for subject");
+  assert.equal(pardotReason({ errors: [{ message: "A" }, { message: "B" }, { message: "A" }] }), "A B");
+  assert.equal(pardotReason({ error: "invalid_grant", error_description: "expired access/refresh token" }), "expired access/refresh token");
+  assert.equal(pardotReason({ raw: "<html><body>Service Unavailable</body></html>" }), "Service Unavailable");
+  assert.equal(pardotReason(undefined), "");
 });
