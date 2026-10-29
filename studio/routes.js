@@ -13,6 +13,18 @@ import { GUIDE_VERSIONS } from "./rules.js";
 import { createStore, ownerKey } from "./store.js";
 import { createUsage } from "./usage.js";
 
+// Pardot v5 errors come as { code, message } or with a list of errors; pick the readable text.
+export function pardotReason(details) {
+  if (!details || typeof details !== "object") return "";
+  const list = Array.isArray(details) ? details : Array.isArray(details.errors) ? details.errors : [details];
+  const texts = list
+    .map((item) => (typeof item === "string" ? item : item?.message || item?.error_description || item?.error || ""))
+    .map((text) => String(text).trim())
+    .filter(Boolean);
+  if (!texts.length && details.raw) texts.push(String(details.raw).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+  return [...new Set(texts)].join(" ").slice(0, 300);
+}
+
 class HttpError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -412,7 +424,16 @@ export function createStudioHandler(deps, env = process.env) {
         if (dryRun()) {
           result = { dryRun: true, message: "Modo simulación: no se ha creado nada en Pardot.", payload };
         } else {
-          const created = await deps.createEmailTemplate(payload);
+          let created;
+          try {
+            created = await deps.createEmailTemplate(payload);
+          } catch (error) {
+            // Keep Pardot's own answer in the logs and tell the person what it said.
+            console.error(`Pardot email template failed: HTTP ${error.status} draft ${draft.id} user ${user.id}`, JSON.stringify(error.details ?? null).slice(0, 4000));
+            const reason = pardotReason(error.details);
+            if (reason) error.message = `${error.message} Pardot dice: ${reason}`;
+            throw error;
+          }
           result = { dryRun: false, message: "Plantilla creada en Pardot.", url: deps.templateUrl(created) };
         }
         let saved = await store.saveDraft(user.id, id, { publishedAt: new Date().toISOString(), pardotResult: { url: result.url || "", dryRun: result.dryRun } }, draft.version);
