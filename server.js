@@ -2010,10 +2010,30 @@ function studioHandler() {
   return studio;
 }
 
+// The old generator (page at "/", its /api/ routes) and the Salesforce
+// connection (/oauth/) are for administrators only. The connection stores the
+// token every Pardot call uses, and the old generator can create list emails,
+// which can be sent; A.U.R.A. users only create templates.
+const LEGACY_PAGES = new Set(["/", "/index.html", "/app.js", "/styles.css"]);
+
+export function isAdminOnlyPath(pathname) {
+  if (pathname.startsWith("/api/studio/")) return false;
+  return LEGACY_PAGES.has(pathname) || pathname.startsWith("/api/") || pathname.startsWith("/oauth/");
+}
+
 export function createServer() {
   return http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, "http://localhost");
+      if (isAdminOnlyPath(url.pathname) && !(await studioHandler().isAdmin(request))) {
+        if (LEGACY_PAGES.has(url.pathname)) {
+          response.writeHead(302, { Location: "/studio/" });
+          response.end();
+        } else {
+          sendJson(response, 403, { error: "Solo los administradores de A.U.R.A. pueden usar esto." });
+        }
+        return;
+      }
       if (url.pathname.startsWith("/api/studio/")) {
         await studioHandler().handle(request, response);
         return;

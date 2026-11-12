@@ -11,6 +11,7 @@ import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
 import { createStudioHandler, getUser, modulesForInvite, pardotFileBody, pardotReason } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
+import { aiPrices } from "../studio/usage.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
 
@@ -499,7 +500,7 @@ test("each AI reply is counted to the person who asked, with an estimated cost",
     extractAiText: (payload) => payload.text,
     isDryRun: () => true,
     runtimeDefaults: () => ({ campaignId: "11", folderId: "22" }),
-  }, { STUDIO_DATA_DIR: dir, STUDIO_ADMIN_EMAILS: "boss@iese.edu", AI_PRICE_INPUT_PER_M: "1", AI_PRICE_CACHED_PER_M: "0.1", AI_PRICE_OUTPUT_PER_M: "10" });
+  }, { STUDIO_DATA_DIR: dir, STUDIO_ADMIN_EMAILS: "boss@iese.edu", AI_PRICE_INPUT_PER_M: "1", AI_PRICE_CACHED_PER_M: "0.1", AI_PRICE_OUTPUT_PER_M: "10", AI_EUR_PER_USD: "1" });
   const server = http.createServer((req, res) => studio.handle(req, res));
   await new Promise((resolve) => server.listen(0, resolve));
   t.after(async () => { server.close(); await rm(dir, { recursive: true, force: true }); });
@@ -525,6 +526,16 @@ test("each AI reply is counted to the person who asked, with an estimated cost",
   assert.equal(months[0].people, 1);
   assert.equal(months[0].input, 4000);
   assert.equal(prices.output, 10);
+  assert.equal(prices.currency, "EUR");
+});
+
+test("AI cost is in euros at the rate measured on IESE's Azure bill", () => {
+  const prices = aiPrices({});
+  assert.equal(prices.currency, "EUR");
+  assert.equal(prices.rate, 0.716);
+  assert.equal(prices.input, 0.537);
+  assert.equal(prices.output, 3.222);
+  assert.equal(aiPrices({ AI_EUR_PER_USD: "0.9", AI_PRICE_OUTPUT_PER_M: "10" }).output, 9);
 });
 
 test("every styled AI call starts with the same rules and examples, so they can be cached", async () => {

@@ -29,6 +29,8 @@ const $ = (sel, root = app) => root.querySelector(sel);
 const $$ = (sel, root = app) => [...root.querySelectorAll(sel)];
 
 async function api(path, { method = "GET", body, raw, headers = {} } = {}) {
+  // AI answers are written for the area of the email being edited.
+  if (path.startsWith("ai/") && body && typeof body === "object" && !body.area) body = { ...body, area: S.draft?.area || currentArea() || undefined };
   const response = await fetch(`/api/studio/${path}`, {
     method,
     headers: raw ? headers : { "Content-Type": "application/json", ...headers },
@@ -786,9 +788,10 @@ async function renderAdmin() {
   document.body.dataset.step = "admin";
   if (!S.config.user.admin) return go("#/");
   app.innerHTML = `<p class="empty">Cargando…</p>`;
-  let [{ users }, { months, prices }] = await Promise.all([api("admin/users"), api("admin/usage")]);
+  let [{ users }, { months, prices }, { examples }] = await Promise.all([api("admin/users"), api("admin/usage"), api("admin/examples")]);
   const tokens = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M` : n >= 1e3 ? `${Math.round(n / 1e3).toLocaleString("es-ES")} k` : String(n || 0));
-  const usd = (n) => `${(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
+  const eur = (n) => `${(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const perM = (n) => `${(n || 0).toLocaleString("es-ES", { maximumFractionDigits: 3 })} €`;
   const monthName = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "—");
   const accessOptions = [["programa", "Programa"], ["alumni", "Alumni"], ["ambos", "Ambos"]];
@@ -802,7 +805,7 @@ async function renderAdmin() {
         <div><strong>${total("created")}</strong><span>borradores creados</span></div>
         <div><strong>${total("published")}</strong><span>enviados a Pardot</span></div>
         <div><strong>${tokens(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].tokens : 0)}</strong><span>tokens de IA este mes</span></div>
-        <div><strong>${usd(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].cost : 0)}</strong><span>coste de IA estimado este mes</span></div>
+        <div><strong>${eur(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].cost : 0)}</strong><span>coste de IA estimado este mes</span></div>
       </div>
       <div class="table-wrap"><table class="users">
         <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th class="num">IA este mes</th><th>Última visita</th></tr></thead>
@@ -814,16 +817,38 @@ async function renderAdmin() {
           <td class="num">${u.created}</td>
           <td class="num">${u.drafts}${u.drafts ? `<div class="meta">${u.alumni} Alumni · ${u.programa} Programa</div>` : ""}</td>
           <td class="num">${u.published}</td>
-          <td class="num">${u.ai.month.calls ? `${tokens(u.ai.month.tokens)}<div class="meta">${usd(u.ai.month.cost)} · ${u.ai.month.calls} usos</div>` : "0"}${u.ai.total.calls > u.ai.month.calls ? `<div class="meta">Total: ${usd(u.ai.total.cost)}</div>` : ""}</td>
+          <td class="num">${u.ai.month.calls ? `${tokens(u.ai.month.tokens)}<div class="meta">${eur(u.ai.month.cost)} · ${u.ai.month.calls} usos</div>` : "0"}${u.ai.total.calls > u.ai.month.calls ? `<div class="meta">Total: ${eur(u.ai.total.cost)}</div>` : ""}</td>
           <td>${day(u.lastSeen || u.lastActivity)}</td></tr>`).join("") || '<tr><td colspan="8" class="empty">Todavía no ha entrado nadie.</td></tr>'}</tbody>
       </table></div>
       <h2 style="margin-top:32px">Consumo de IA por mes</h2>
-      <p class="lead">Estimado con el precio de lista del modelo (${prices.input} $ por millón de tokens de entrada y ${prices.output} $ por millón de salida). La factura real está en la consola de OpenAI o de Azure.</p>
+      <p class="lead">Estimado en euros con lo que el IESE paga en Azure por este modelo: ${perM(prices.input)} por millón de tokens de entrada, ${perM(prices.cached)} si se reutilizan de la caché y ${perM(prices.output)} por millón de salida. La factura exacta está en Azure Cost analysis.</p>
       <div class="table-wrap"><table class="users">
         <thead><tr><th>Mes</th><th class="num">Usos de IA</th><th class="num">Personas</th><th class="num">Tokens entrada</th><th class="num">Tokens salida</th><th class="num">Coste estimado</th></tr></thead>
-        <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${usd(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>
+        <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${eur(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>
       </table></div>
+      <h2 style="margin-top:32px">Emails que aprende la IA</h2>
+      <p class="lead">Cuando alguien crea una plantilla y dice «Sí, que aprenda», el email queda aquí. La IA solo lo usa como referencia de tono cuando está aprobado, y solo para emails del mismo idioma y la misma área. Los que envía un administrador se aprueban solos.</p>
+      ${examples.length ? `<div class="drafts">${examples.map((e) => `<div class="draft"><div class="grow"><div class="title">${esc(e.subject || "Sin asunto")}</div>
+        <div class="meta">${e.area === "programa" ? "Programa" : "Alumni"} · ${e.language === "en" ? "Inglés" : "Español"} · ${esc(e.author || "Autor desconocido")} · ${day(e.createdAt)}</div>
+        <details><summary class="meta">Ver texto</summary><p style="white-space:pre-wrap">${esc(e.text || "—")}</p></details></div>
+        ${e.status === "pending" ? '<span class="pill">Pendiente</span>' : '<span class="pill ok">Aprobado</span>'}
+        ${e.status === "pending" ? `<button class="btn small" data-approve="${e.id}">Aprobar</button>` : `<button class="btn small ghost" data-unapprove="${e.id}">Retirar</button>`}
+        <button class="btn small ghost" data-delex="${e.id}">Eliminar</button></div>`).join("")}</div>` : '<p class="empty">Todavía no hay emails aprendidos.</p>'}
       <div class="actions" style="justify-content:flex-start"><a class="btn ghost" href="#/">Volver</a></div>`;
+    const review = (b, request) => busy(b, async () => {
+      try {
+        ({ examples } = await request());
+        notify("Guardado.");
+      } finally {
+        draw();
+      }
+    });
+    $$("[data-approve]").forEach((b) => b.onclick = () => review(b, () => api(`admin/examples/${b.dataset.approve}`, { method: "PUT", body: { approved: true } })));
+    $$("[data-unapprove]").forEach((b) => b.onclick = () => review(b, () => api(`admin/examples/${b.dataset.unapprove}`, { method: "PUT", body: { approved: false } })));
+    $$("[data-delex]").forEach((b) => b.onclick = async () => {
+      if (await confirmDialog({ title: "¿Eliminar este email aprendido?", text: "La IA dejará de usarlo como referencia. No se puede deshacer.", yes: "Eliminar", no: "Cancelar" }) !== "yes") return;
+      review(b, () => api(`admin/examples/${b.dataset.delex}`, { method: "DELETE" }));
+    });
     const save = (key, change, el) => {
       el.disabled = true;
       return busy(null, async () => {
@@ -1641,7 +1666,7 @@ function renderDone(result) {
   stepper.hidden = true;
   const other = S.draft.language === "es" ? "inglés" : "español";
   app.innerHTML = `<div class="panel success"><div class="big">✓</div><h1>${result.dryRun ? "Simulación completada" : "Plantilla creada en Pardot"}</h1>
-    <p class="lead">${esc(result.message)}${result.learned ? " La IA tendrá en cuenta este email en próximas peticiones." : ""}</p>
+    <p class="lead">${esc(result.message)}${result.learned === "pending" ? " Un administrador revisará este email antes de que la IA lo use como referencia." : result.learned ? " La IA tendrá en cuenta este email en próximas peticiones." : ""}</p>
     <div class="row" style="justify-content:center">${result.url ? `<a class="btn primary" href="${esc(result.url)}" target="_blank" rel="noopener">Abrir en Pardot</a>` : ""}
       ${S.config.ai ? `<button class="btn" data-act="translate">Crear versión en ${other}</button>` : ""}<a class="btn" href="${homeHash()}">Volver al inicio</a></div>
     <p class="hint" style="margin-top:20px">La audiencia y el envío se configuran en Pardot.</p></div>`;

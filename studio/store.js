@@ -15,6 +15,9 @@ export class StoreError extends Error {
 
 const ID = /^[a-f0-9-]{36}$/;
 
+export const exampleArea = (example) => example.area || "alumni";
+export const exampleApproved = (example) => (example.status || "approved") === "approved";
+
 export function ownerKey(userId) {
   return createHash("sha256").update(String(userId).toLowerCase()).digest("hex").slice(0, 24);
 }
@@ -53,6 +56,21 @@ export function createStore(dataDir) {
   function draftFile(userId, id) {
     if (!ID.test(id || "")) throw new StoreError("Borrador no encontrado.", 404);
     return path.join(draftsDir, ownerKey(userId), `${id}.json`);
+  }
+
+  function exampleFile(id) {
+    if (!ID.test(id || "")) throw new StoreError("Ejemplo no encontrado.", 404);
+    return path.join(examplesDir, `${id}.json`);
+  }
+
+  async function allExamples() {
+    let files = [];
+    try {
+      files = (await readdir(examplesDir)).filter((f) => f.endsWith(".json"));
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    return (await Promise.all(files.map((f) => readJson(path.join(examplesDir, f)).catch(() => null)))).filter(Boolean);
   }
 
   function summary(draft) {
@@ -154,33 +172,53 @@ export function createStore(dataDir) {
       await rm(draftFile(userId, id), { force: true });
     },
 
-    async addExample(draft) {
+    // A learned email. Those sent by an administrator are used at once; the
+    // rest wait until an administrator approves them in the admin panel.
+    async addExample(draft, { approved = false } = {}) {
+      const now = new Date().toISOString();
       const example = {
         id: randomUUID(),
         sourceDraftId: draft.id,
         template: draft.template,
+        area: draft.area || "alumni",
         language: draft.language,
         subject: draft.subject,
         preheader: draft.preheader,
         modules: draft.modules,
         author: ownerKey(draft.owner),
-        createdAt: new Date().toISOString(),
+        status: approved ? "approved" : "pending",
+        reviewedAt: approved ? now : null,
+        createdAt: now,
       };
       await writeJson(path.join(examplesDir, `${example.id}.json`), example);
       return example;
     },
 
-    async findExamples({ template, language, limit = 3 }) {
-      let files = [];
-      try {
-        files = (await readdir(examplesDir)).filter((f) => f.endsWith(".json"));
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
-      const all = (await Promise.all(files.map((f) => readJson(path.join(examplesDir, f))))).filter(Boolean);
-      const score = (e) => (e.language === language ? 2 : 0) + (e.template === template ? 1 : 0);
-      return all
-        .filter((e) => e.language === language)
+    async listExamples() {
+      return (await allExamples()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+
+    async reviewExample(id, approved) {
+      const file = exampleFile(id);
+      return exclusive(file, async () => {
+        const current = await readJson(file);
+        if (!current) throw new StoreError("Ejemplo no encontrado.", 404);
+        const next = { ...current, status: approved ? "approved" : "pending", reviewedAt: new Date().toISOString() };
+        await writeJson(file, next);
+        return next;
+      });
+    },
+
+    async deleteExample(id) {
+      await rm(exampleFile(id), { force: true });
+    },
+
+    // Approved examples of the same language and area, same template first.
+    // Examples learned before areas and reviews existed count as approved Alumni.
+    async findExamples({ template, language, area = "alumni", limit = 3 }) {
+      const score = (e) => (e.template === template ? 1 : 0);
+      return (await allExamples())
+        .filter((e) => e.language === language && exampleArea(e) === area && exampleApproved(e))
         .sort((a, b) => score(b) - score(a) || b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit);
     },
