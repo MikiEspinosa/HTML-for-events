@@ -164,3 +164,12 @@ test("the old generator and the Salesforce connection are for administrators onl
   assert.equal((await get("/", "boss@iese.edu")).status, 200);
   assert.equal((await get("/api/config", "boss@iese.edu")).status, 200);
 });
+
+test("names given as \"Surname, First name\" are shown first name first", async () => {
+  const { displayName } = await import("../studio/routes.js");
+  assert.equal(displayName("Espinosa, Miki"), "Miki Espinosa");
+  assert.equal(displayName("Ana Pérez"), "Ana Pérez");
+  assert.equal(displayName(""), "");
+  const principal = Buffer.from(JSON.stringify({ claims: [{ typ: "name", val: "Espinosa, Miki" }] })).toString("base64");
+  assert.equal(getUser({ headers: { "x-ms-client-principal": principal, "x-ms-client-principal-name": "m@iese.edu", "x-ms-client-principal-id": "1" } }, {}).name, "Miki Espinosa");
+});

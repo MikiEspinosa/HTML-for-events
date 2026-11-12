@@ -1,5 +1,7 @@
 // Guided email studio: one question per screen, live preview, autosaved drafts.
 
+import { ICONS, MODULE_ICONS, initials } from "./icons.js";
+
 const app = document.getElementById("app");
 const stepper = document.getElementById("stepper");
 const banner = document.getElementById("banner");
@@ -94,6 +96,16 @@ function currentArea() {
   if (S.area) return S.area;
   try { return sessionStorage.getItem(AREA_KEY); } catch { return null; }
 }
+// Alumni / Programa switch in the top bar, for people who may use both.
+function paintAreaSwitch(show) {
+  const el = document.getElementById("area-switch");
+  const areas = S.config?.user.areas || [];
+  el.hidden = !(show && areas.length > 1);
+  if (el.hidden) return;
+  const names = { alumni: "Alumni", programa: "Programa" };
+  el.innerHTML = areas.map((a) => `<button type="button" class="${a === currentArea() ? "on" : ""}" aria-pressed="${a === currentArea()}" data-switch="${a}">${names[a] || esc(a)}</button>`).join("");
+  el.querySelectorAll("[data-switch]").forEach((b) => b.onclick = () => { setArea(b.dataset.switch); go(`#/a/${b.dataset.switch}`); });
+}
 const areaLabel = (area) => S.config.areas[area || "alumni"]?.label || "IESE Alumni";
 const homeHash = () => (currentArea() ? `#/a/${currentArea()}` : "#/");
 
@@ -122,7 +134,7 @@ function micButton(textarea) {
   button.className = "mic";
   button.title = "Dictar";
   button.setAttribute("aria-label", "Dictar");
-  button.textContent = "🎙";
+  button.innerHTML = ICONS.mic;
   let rec = null;
   button.onclick = () => {
     if (rec) { rec.stop(); return; }
@@ -554,6 +566,7 @@ async function inlineOwnImages(html) {
 async function refreshPreview() {
   const frame = document.getElementById("preview");
   if (!frame || !S.draft) return;
+  paintMailbar();
   try {
     const d = S.draft;
     S.preview = await api("preview", { method: "POST", body: { template: d.template, language: d.language, subject: d.subject, preheader: d.preheader, hideLogo: Boolean(d.hideLogo), quickLinks: d.quickLinks || {}, tweaks: d.tweaks || [], modules: d.modules, area: d.area } });
@@ -583,18 +596,31 @@ window.addEventListener("message", (event) => {
 function previewPane() {
   return `<div class="preview-wrap">
     <div class="preview-head"><span>Vista previa · ${S.draft.language === "en" ? "inglés" : "español"}</span>
-      <span class="row"><span class="saving">Guardado</span><button class="btn small" data-act="mobile">${S.mobile ? "Ver escritorio" : "Ver móvil"}</button></span></div>
-    <iframe id="preview" class="preview${S.mobile ? " mobile" : ""}" title="Vista previa del email" sandbox="allow-scripts"></iframe>
+      <span class="row"><span class="saving">Guardado</span><span class="seg" role="group" aria-label="Tamaño de la vista previa">
+        <button type="button" data-device="desktop" class="${S.mobile ? "" : "on"}" aria-pressed="${!S.mobile}" aria-label="Ver en escritorio" title="Ver en escritorio">${ICONS.monitor}</button>
+        <button type="button" data-device="mobile" class="${S.mobile ? "on" : ""}" aria-pressed="${S.mobile}" aria-label="Ver en móvil" title="Ver en móvil">${ICONS.phone}</button></span></span></div>
+    <div class="canvas"><div class="mailwin${S.mobile ? " mobile" : ""}">
+      <div class="mailbar"><span class="av">${ICONS.mail}</span><div class="mail-text"><div class="from">${esc(areaLabel(S.draft.area))}</div><div class="subj" id="mail-subject"></div></div></div>
+      <iframe id="preview" class="preview" title="Vista previa del email" sandbox="allow-scripts"></iframe>
+    </div></div>
   </div>`;
 }
 
+// How the email will look in the inbox: subject in bold, then the preview text.
+function paintMailbar() {
+  const el = document.getElementById("mail-subject");
+  if (!el || !S.draft) return;
+  const subject = S.draft.subject?.trim();
+  const preheader = S.draft.preheader?.trim();
+  el.innerHTML = `${subject ? esc(subject) : '<span class="pre">Sin asunto todavía</span>'}${preheader ? ` <span class="pre">— ${esc(preheader)}</span>` : ""}`;
+}
+
 function bindPreviewPane() {
-  const toggle = $('[data-act="mobile"]');
-  if (toggle) toggle.onclick = () => {
-    S.mobile = !S.mobile;
-    $("#preview").classList.toggle("mobile", S.mobile);
-    toggle.textContent = S.mobile ? "Ver escritorio" : "Ver móvil";
-  };
+  $$("[data-device]").forEach((b) => b.onclick = () => {
+    S.mobile = b.dataset.device === "mobile";
+    $(".mailwin").classList.toggle("mobile", S.mobile);
+    $$("[data-device]").forEach((x) => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+  });
   refreshPreview();
 }
 
@@ -743,8 +769,7 @@ function renderStepper(step) {
   const current = flow.findIndex(([k]) => k === step);
   const reached = Math.max(current, flow.findIndex(([k]) => k === S.draft.step));
   stepper.hidden = false;
-  stepper.innerHTML = `<button class="done" disabled><span class="n">✓</span>${esc(S.config.templates[S.draft.template].label.es)}</button>` +
-    flow.map(([key, label], i) => `<button data-step="${key}" class="${i === current ? "current" : i < reached || i < current ? "done" : ""}" ${i > reached && i > current ? "disabled" : ""}><span class="n">${i < current ? "✓" : i + 1}</span>${esc(label)}</button>`).join("");
+  stepper.innerHTML = flow.map(([key, label], i) => `<button data-step="${key}" class="${i === current ? "current" : i < reached || i < current ? "done" : ""}" ${i > reached && i > current ? "disabled" : ""}><span class="n">${i < current ? "✓" : i + 1}</span>${esc(label)}</button>`).join("");
   stepper.querySelectorAll("[data-step]").forEach((b) => b.onclick = () => go(`#/d/${S.draft.id}/${b.dataset.step}`));
 }
 
@@ -769,20 +794,21 @@ function renderAreas() {
     alumni: "Emails para la comunidad de antiguos alumnos, con la marca de IESE Alumni.",
     programa: "Emails de los programas, con su propio logo, campaña y carpeta de Pardot.",
   };
-  const icons = { alumni: "🎓", programa: "📘" };
+  const logos = { alumni: BRAND_LOGOS.alumni, programa: BRAND_LOGOS.programa };
   app.innerHTML = `<p class="eyebrow">A.U.R.A.</p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
     <p class="lead">¿Para quién es el email que vas a crear?</p>
     <div class="cards">${Object.entries(S.config.areas).map(([key, a]) => {
       const ok = allowed.includes(key);
       return `<button class="card area-card" data-area="${key}" ${ok ? "" : "disabled"}>${ok ? "" : '<span class="tag">Sin acceso</span>'}
-        <span class="icon">${icons[key] || "✉️"}</span><strong>${esc(a.label)}</strong><span>${esc(ok ? blurbs[key] || "" : "Pide acceso a un administrador si lo necesitas.")}</span></button>`;
+        ${logos[key] ? `<img class="logo" src="${logos[key].src}" alt="">` : `<span class="icon">${ICONS.mail}</span>`}<strong>${esc(a.label)}</strong><span>${esc(ok ? blurbs[key] || "" : "Pide acceso a un administrador si lo necesitas.")}</span>
+        ${ok ? `<span class="enter">Entrar ${ICONS.arrow}</span>` : ""}</button>`;
     }).join("")}</div>
-    ${S.config.user.admin ? '<div class="actions" style="justify-content:flex-start"><a class="btn" href="#/admin">⚙ Panel de administración</a></div>' : ""}`;
+    ${S.config.user.admin ? `<div class="actions"><a class="btn ghost" href="#/admin">${ICONS.gear} Panel de administración</a></div>` : ""}`;
   $$("[data-area]").forEach((b) => b.onclick = () => { setArea(b.dataset.area); go(`#/a/${b.dataset.area}`); });
 }
 
 // Admin panel: everyone who has used the app, their access and their activity.
-async function renderAdmin() {
+async function renderAdmin(tab = "users") {
   S.draft = null;
   stepper.hidden = true;
   document.body.dataset.step = "admin";
@@ -795,23 +821,29 @@ async function renderAdmin() {
   const monthName = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
   const day = (iso) => (iso ? new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "—");
   const accessOptions = [["programa", "Programa"], ["alumni", "Alumni"], ["ambos", "Ambos"]];
-  const draw = () => {
+  const thisMonth = () => (months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0] : { tokens: 0, cost: 0 });
+  const stat = (icon, value, text) => `<div class="stat"><span class="ic">${ICONS[icon]}</span><div class="tx"><strong>${value}</strong><span>${text}</span></div></div>`;
+  const person = (u) => `<div class="person"><span class="av">${u.unknown ? "?" : esc(initials(u.name || u.email))}</span><div>${u.unknown
+    ? '<span class="muted">Usuario anterior</span><div class="meta">Aparecerá con su nombre cuando vuelva a entrar</div>'
+    : u.pending ? `<strong>${esc(u.email)}</strong><div class="meta">Todavía no ha entrado</div>`
+      : `<strong>${esc(u.name || u.email)}</strong><div class="meta">${esc(u.email)}</div>`}</div></div>`;
+
+  const usersTab = () => {
     const known = users.filter((u) => !u.unknown && !u.pending);
     const total = (k) => users.reduce((n, u) => n + (Number(u[k]) || 0), 0);
-    app.innerHTML = `<p class="eyebrow">Administración</p><h1>Usuarios de A.U.R.A.</h1>
-      <p class="lead">Elige a qué área puede entrar cada persona. Quien entra por primera vez empieza en Programa.</p>
-      <div class="stats">
-        <div><strong>${known.length}</strong><span>usuarios</span></div>
-        <div><strong>${total("created")}</strong><span>borradores creados</span></div>
-        <div><strong>${total("published")}</strong><span>enviados a Pardot</span></div>
-        <div><strong>${tokens(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].tokens : 0)}</strong><span>tokens de IA este mes</span></div>
-        <div><strong>${eur(months[0]?.month === new Date().toISOString().slice(0, 7) ? months[0].cost : 0)}</strong><span>coste de IA estimado este mes</span></div>
+    return `<div class="stats">
+        ${stat("users", known.length, "usuarios")}
+        ${stat("file", total("created"), "borradores creados")}
+        ${stat("send", total("published"), "enviados a Pardot")}
+        ${stat("zap", tokens(thisMonth().tokens), "tokens de IA este mes")}
+        ${stat("euro", eur(thisMonth().cost), "coste de IA estimado este mes")}
       </div>
+      <p class="hint">Elige a qué área puede entrar cada persona. Quien entra por primera vez empieza en Programa.</p>
       <div class="table-wrap"><table class="users">
         <thead><tr><th>Persona</th><th>Acceso</th><th>Admin</th><th class="num">Borradores creados</th><th class="num">Guardados ahora</th><th class="num">Enviados a Pardot</th><th class="num">IA este mes</th><th>Última visita</th></tr></thead>
-        <tbody>${users.map((u) => u.pending ? `<tr class="unknown"><td><strong>${esc(u.email)}</strong><div class="meta">Todavía no ha entrado</div></td>
-          <td>${u.access === "alumni" ? "Alumni" : "Programa"}<div class="meta">Asignado de antemano</div></td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">—</td><td>—</td></tr>` : `<tr${u.unknown ? ' class="unknown"' : ""}>
-          <td>${u.unknown ? '<span class="muted">Usuario anterior</span><div class="meta">Aparecerá con su nombre cuando vuelva a entrar</div>' : `<strong>${esc(u.name || u.email)}</strong><div class="meta">${esc(u.email)}</div>`}</td>
+        <tbody>${users.map((u) => u.pending ? `<tr class="unknown"><td>${person(u)}</td>
+          <td><span class="badge ${u.access === "alumni" ? "alumni" : "programa"}">${u.access === "alumni" ? "Alumni" : "Programa"}</span><div class="meta">Asignado de antemano</div></td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">—</td><td>—</td></tr>` : `<tr${u.unknown ? ' class="unknown"' : ""}>
+          <td>${person(u)}</td>
           <td>${u.unknown ? "—" : `<select data-access="${u.key}" ${u.owner ? "disabled" : ""} aria-label="Acceso de ${esc(u.name || u.email)}">${accessOptions.map(([v, l]) => `<option value="${v}" ${u.access === v ? "selected" : ""}>${l}</option>`).join("")}</select>`}</td>
           <td>${u.unknown ? "—" : `<input type="checkbox" data-admin="${u.key}" ${u.admin ? "checked" : ""} ${u.owner ? 'disabled title="Administrador fijo"' : ""} aria-label="Administrador">`}</td>
           <td class="num">${u.created}</td>
@@ -819,22 +851,36 @@ async function renderAdmin() {
           <td class="num">${u.published}</td>
           <td class="num">${u.ai.month.calls ? `${tokens(u.ai.month.tokens)}<div class="meta">${eur(u.ai.month.cost)} · ${u.ai.month.calls} usos</div>` : "0"}${u.ai.total.calls > u.ai.month.calls ? `<div class="meta">Total: ${eur(u.ai.total.cost)}</div>` : ""}</td>
           <td>${day(u.lastSeen || u.lastActivity)}</td></tr>`).join("") || '<tr><td colspan="8" class="empty">Todavía no ha entrado nadie.</td></tr>'}</tbody>
-      </table></div>
-      <h2 style="margin-top:32px">Consumo de IA por mes</h2>
-      <p class="lead">Estimado en euros con lo que el IESE paga en Azure por este modelo: ${perM(prices.input)} por millón de tokens de entrada, ${perM(prices.cached)} si se reutilizan de la caché y ${perM(prices.output)} por millón de salida. La factura exacta está en Azure Cost analysis.</p>
-      <div class="table-wrap"><table class="users">
-        <thead><tr><th>Mes</th><th class="num">Usos de IA</th><th class="num">Personas</th><th class="num">Tokens entrada</th><th class="num">Tokens salida</th><th class="num">Coste estimado</th></tr></thead>
-        <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${eur(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>
-      </table></div>
-      <h2 style="margin-top:32px">Emails que aprende la IA</h2>
-      <p class="lead">Cuando alguien crea una plantilla y dice «Sí, que aprenda», el email queda aquí. La IA solo lo usa como referencia de tono cuando está aprobado, y solo para emails del mismo idioma y la misma área. Los que envía un administrador se aprueban solos.</p>
-      ${examples.length ? `<div class="drafts">${examples.map((e) => `<div class="draft"><div class="grow"><div class="title">${esc(e.subject || "Sin asunto")}</div>
-        <div class="meta">${e.area === "programa" ? "Programa" : "Alumni"} · ${e.language === "en" ? "Inglés" : "Español"} · ${esc(e.author || "Autor desconocido")} · ${day(e.createdAt)}</div>
-        <details><summary class="meta">Ver texto</summary><p style="white-space:pre-wrap">${esc(e.text || "—")}</p></details></div>
-        ${e.status === "pending" ? '<span class="pill">Pendiente</span>' : '<span class="pill ok">Aprobado</span>'}
-        ${e.status === "pending" ? `<button class="btn small" data-approve="${e.id}">Aprobar</button>` : `<button class="btn small ghost" data-unapprove="${e.id}">Retirar</button>`}
-        <button class="btn small ghost" data-delex="${e.id}">Eliminar</button></div>`).join("")}</div>` : '<p class="empty">Todavía no hay emails aprendidos.</p>'}
+      </table></div>`;
+  };
+
+  const usageTab = () => `<div class="stats">
+      ${stat("zap", tokens(thisMonth().tokens), "tokens de IA este mes")}
+      ${stat("euro", eur(thisMonth().cost), "coste estimado este mes")}
+      ${stat("euro", eur(months.reduce((n, m) => n + m.cost, 0)), "coste estimado total")}
+    </div>
+    <p class="hint">Estimado en euros con lo que el IESE paga en Azure por este modelo: ${perM(prices.input)} por millón de tokens de entrada, ${perM(prices.cached)} si se reutilizan de la caché y ${perM(prices.output)} por millón de salida. La factura exacta está en Azure Cost analysis.</p>
+    <div class="table-wrap"><table class="users">
+      <thead><tr><th>Mes</th><th class="num">Usos de IA</th><th class="num">Personas</th><th class="num">Tokens entrada</th><th class="num">Tokens salida</th><th class="num">Coste estimado</th></tr></thead>
+      <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${eur(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>
+    </table></div>`;
+
+  const examplesTab = () => `<p class="hint">Cuando alguien crea una plantilla y dice «Sí, que aprenda», el email queda aquí. La IA solo lo usa como referencia de tono cuando está aprobado, y solo para emails del mismo idioma y la misma área. Los que envía un administrador se aprueban solos.</p>
+    ${examples.length ? `<div class="drafts">${examples.map((e) => `<div class="draft"><div class="grow"><div class="title">${esc(e.subject || "Sin asunto")}</div>
+      <div class="meta"><span class="badge ${e.area === "programa" ? "programa" : "alumni"}">${e.area === "programa" ? "Programa" : "Alumni"}</span> ${e.language === "en" ? "Inglés" : "Español"} · ${esc(e.author || "Autor desconocido")} · ${day(e.createdAt)}</div>
+      <details><summary class="meta">Ver texto</summary><p style="white-space:pre-wrap">${esc(e.text || "—")}</p></details></div>
+      ${e.status === "pending" ? '<span class="pill">Pendiente</span>' : '<span class="pill ok">Aprobado</span>'}
+      ${e.status === "pending" ? `<button class="btn small primary" data-approve="${e.id}">Aprobar</button>` : `<button class="btn small ghost" data-unapprove="${e.id}">Retirar</button>`}
+      <button class="btn small ghost" data-delex="${e.id}">Eliminar</button></div>`).join("")}</div>` : '<p class="empty">Todavía no hay emails aprendidos.</p>'}`;
+
+  const draw = () => {
+    const pending = examples.filter((e) => e.status === "pending").length;
+    const tabs = [["users", "users", "Usuarios", 0], ["usage", "euro", "Consumo de IA", 0], ["examples", "spark", "Emails aprendidos", pending]];
+    app.innerHTML = `<p class="eyebrow">Administración</p><h1>Panel de A.U.R.A.</h1>
+      <div class="tabs" role="tablist">${tabs.map(([key, icon, text, count]) => `<button type="button" role="tab" data-tab="${key}" class="${key === tab ? "on" : ""}" aria-selected="${key === tab}">${ICONS[icon]} ${text}${count ? ` <em>${count}</em>` : ""}</button>`).join("")}</div>
+      <div role="tabpanel">${tab === "usage" ? usageTab() : tab === "examples" ? examplesTab() : usersTab()}</div>
       <div class="actions" style="justify-content:flex-start"><a class="btn ghost" href="#/">Volver</a></div>`;
+    $$("[data-tab]").forEach((b) => b.onclick = () => { tab = b.dataset.tab; draw(); });
     const review = (b, request) => busy(b, async () => {
       try {
         ({ examples } = await request());
@@ -869,32 +915,82 @@ async function renderAdmin() {
 async function renderHome(area) {
   if (!S.config.user.areas.includes(area)) return go("#/");
   setArea(area);
+  paintAreaSwitch(true);
   S.draft = null;
   stepper.hidden = true;
   document.body.dataset.step = "home";
   app.innerHTML = `<p class="empty">Cargando…</p>`;
   const { drafts } = await api("drafts");
   const label = (k) => t(S.config.templates[k]?.label) || k;
-  const when = (iso) => new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  app.innerHTML = `<section class="home-hero"><div><p class="eyebrow">${esc(areaLabel(area))} · <a href="#/">Cambiar</a></p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
+  const when = (iso) => {
+    const date = new Date(iso);
+    const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(date).setHours(0, 0, 0, 0)) / 86400000);
+    if (days === 0) return `hoy, ${date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
+    if (days === 1) return "ayer";
+    if (days < 7) return `hace ${days} días`;
+    return date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  };
+  const inPardot = drafts.filter((d) => d.publishedAt).length;
+  let filter = "all";
+  let query = "";
+  app.innerHTML = `<section class="home-hero"><div><p class="eyebrow">${esc(areaLabel(area))}${S.config.user.areas.length > 1 ? "" : ' · <a href="#/">Inicio</a>'}</p><h1>Hola${S.config.user.name ? `, ${esc(S.config.user.name.split(" ")[0])}` : ""}</h1>
       <p class="lead">Crea un email con la marca del IESE en unos pocos pasos y llévalo a Pardot como plantilla.</p></div>
-      <a class="btn primary" href="#/new">+ Crear un email</a></section>
-    <h2>Mis borradores</h2>
-    <div class="drafts">${drafts.length ? drafts.map((d) => `<div class="draft"><div class="grow"><div class="title">${esc(d.name || "Sin nombre")}</div>
-      <div class="meta">${esc(areaLabel(d.area))} · ${esc(label(d.template))} · ${d.language === "en" ? "Inglés" : "Español"} · ${esc(when(d.updatedAt))}</div></div>
-      ${d.publishedAt ? '<span class="pill ok">En Pardot</span>' : '<span class="pill">Borrador</span>'}
-      <a class="btn small" href="#/d/${d.id}">Abrir</a>
-      <button class="btn small ghost" data-dup="${d.id}">Duplicar</button>
-      <button class="btn small ghost" data-del="${d.id}" aria-label="Eliminar">Eliminar</button></div>`).join("") : '<p class="empty">Todavía no tienes borradores. Empieza con «Crear un email».</p>'}</div>`;
-  $$("[data-dup]").forEach((b) => b.onclick = () => busy(b, async () => {
-    const { draft } = await api(`drafts/${b.dataset.dup}/duplicate`, { method: "POST" });
-    go(`#/d/${draft.id}`);
-  }));
-  $$("[data-del]").forEach((b) => b.onclick = async () => {
-    if (await confirmDialog({ title: "¿Eliminar este borrador?", text: "No se puede deshacer. Si ya está en Pardot, la plantilla de Pardot no se toca.", yes: "Eliminar", no: "Cancelar" }) !== "yes") return;
-    await busy(b, () => api(`drafts/${b.dataset.del}`, { method: "DELETE" }));
-    renderHome(area);
+      <a class="btn primary" href="#/new">${ICONS.plus} Crear un email</a></section>
+    <div class="kpis">
+      <div class="kpi"><span class="ic">${ICONS.file}</span><div><strong>${drafts.length - inPardot}</strong><span>${drafts.length - inPardot === 1 ? "borrador" : "borradores"}</span></div></div>
+      <div class="kpi"><span class="ic">${ICONS.send}</span><div><strong>${inPardot}</strong><span>${inPardot === 1 ? "plantilla en Pardot" : "plantillas en Pardot"}</span></div></div>
+      <div class="kpi"><span class="ic">${ICONS.clock}</span><div><strong>${drafts.length ? esc(when(drafts[0].updatedAt).replace(/^./, (c) => c.toUpperCase())) : "—"}</strong><span>última edición</span></div></div>
+    </div>
+    <div class="list-head"><h2>Mis emails</h2>
+      <span class="chips" role="group" aria-label="Filtrar">${[["all", "Todos"], ["draft", "Borradores"], ["pardot", "En Pardot"]].map(([k, l]) => `<button type="button" data-filter="${k}" class="${k === filter ? "on" : ""}" aria-pressed="${k === filter}">${l}</button>`).join("")}</span>
+      <label class="search">${ICONS.search}<input type="search" id="draft-search" placeholder="Buscar…" aria-label="Buscar en mis emails"></label></div>
+    <div class="drafts grid" id="draft-grid"></div>`;
+  const grid = $("#draft-grid");
+  // Each card shows the real email, scaled down; it is rendered when the card comes into view.
+  const thumbs = new IntersectionObserver((entries) => entries.forEach(async (entry) => {
+    if (!entry.isIntersecting) return;
+    thumbs.unobserve(entry.target);
+    try {
+      const { html } = await api(`drafts/${entry.target.dataset.thumb}/export`, { method: "POST" });
+      const frame = document.createElement("iframe");
+      Object.assign(frame, { title: "", tabIndex: -1 });
+      frame.setAttribute("sandbox", "");
+      frame.setAttribute("aria-hidden", "true");
+      frame.srcdoc = html;
+      entry.target.prepend(frame);
+    } catch { /* the card stays without a picture */ }
+  }), { rootMargin: "200px" });
+  const paint = () => {
+    thumbs.disconnect();
+    const words = query.trim().toLowerCase();
+    const shown = drafts.filter((d) => (filter === "all" || (filter === "pardot") === Boolean(d.publishedAt))
+      && (!words || `${d.name} ${d.subject}`.toLowerCase().includes(words)));
+    grid.innerHTML = shown.length ? shown.map((d) => `<article class="dcard">
+      <a class="thumb" href="#/d/${d.id}" data-thumb="${d.id}" aria-label="Abrir ${esc(d.name || "Sin nombre")}">${d.publishedAt ? '<span class="pill ok">En Pardot</span>' : '<span class="pill">Borrador</span>'}</a>
+      <div class="body"><div class="title" title="${esc(d.name || "")}">${esc(d.name || "Sin nombre")}</div>
+        <div class="meta">${esc(areaLabel(d.area))} · ${esc(label(d.template))} · ${d.language === "en" ? "EN" : "ES"} · ${esc(when(d.updatedAt))}</div></div>
+      <div class="foot"><a class="btn small" href="#/d/${d.id}">Abrir</a>
+        <details class="menu"><summary class="btn small" aria-label="Más acciones">${ICONS.more}</summary>
+          <div class="menu-list"><button type="button" data-dup="${d.id}">Duplicar</button><button type="button" class="danger" data-del="${d.id}">Eliminar</button></div></details></div></article>`).join("")
+      : `<p class="empty">${drafts.length ? "Ningún email coincide con el filtro." : "Todavía no tienes emails. Empieza con «Crear un email»."}</p>`;
+    $$("[data-thumb]", grid).forEach((el) => thumbs.observe(el));
+    $$("[data-dup]", grid).forEach((b) => b.onclick = () => busy(b, async () => {
+      const { draft } = await api(`drafts/${b.dataset.dup}/duplicate`, { method: "POST" });
+      go(`#/d/${draft.id}`);
+    }));
+    $$("[data-del]", grid).forEach((b) => b.onclick = async () => {
+      if (await confirmDialog({ title: "¿Eliminar este borrador?", text: "No se puede deshacer. Si ya está en Pardot, la plantilla de Pardot no se toca.", yes: "Eliminar", no: "Cancelar" }) !== "yes") return;
+      await busy(b, () => api(`drafts/${b.dataset.del}`, { method: "DELETE" }));
+      renderHome(area);
+    });
+  };
+  $$("[data-filter]").forEach((b) => b.onclick = () => {
+    filter = b.dataset.filter;
+    $$("[data-filter]").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); });
+    paint();
   });
+  $("#draft-search").oninput = (e) => { query = e.target.value; paint(); };
+  paint();
 }
 
 // Template choice.
@@ -905,7 +1001,8 @@ function renderNew() {
   S.plan = null;
   stepper.hidden = true;
   document.body.dataset.step = "new";
-  const icons = { invite: "✉️", paint: "🎨", calendar: "📅", newsletter: "📰" };
+  const icons = { invite: ICONS.mail, paint: ICONS.layout, calendar: ICONS.calendar, newsletter: ICONS.news };
+  paintAreaSwitch(true);
   const blurbs = {
     invite: "Para un evento concreto. Pega el enlace de apply.iese.edu y te preparo casi todo.",
     paint: "Describe cómo quieres el email y lo monto contigo, módulo a módulo.",
@@ -944,13 +1041,13 @@ function renderStart() {
   const d = S.draft;
   app.innerHTML = `<p class="eyebrow">Invitación a evento</p><h1>¿Desde dónde empezamos?</h1><p class="lead">Elige una opción. Todo se puede cambiar después.</p>
     <div class="choice">
-      <div class="panel"><h2>🔗 Tengo el enlace del evento</h2><p class="hint">Leo la página de apply.iese.edu completa: título, fechas, lugar, imagen, texto, agenda y ponentes.</p>
+      <div class="panel"><h2><span class="h-ic">${ICONS.link}</span>Tengo el enlace del evento</h2><p class="hint">Leo la página de apply.iese.edu completa: título, fechas, lugar, imagen, texto, agenda y ponentes.</p>
         <div class="row"><div class="field" style="flex:1;margin:0"><input type="url" id="event-url" placeholder="https://apply.iese.edu/…" value="${esc(d.source?.url || "")}"></div><button class="btn primary" data-act="capture">Leer evento</button></div>
         <div id="capture-result"></div></div>
-      <div class="panel"><h2>💬 Te cuento las ideas</h2><p class="hint">Pega o dicta lo que quieras contar. La IA lo usará como base, sin copiarlo.</p>
+      <div class="panel"><h2><span class="h-ic">${ICONS.message}</span>Te cuento las ideas</h2><p class="hint">Pega o dicta lo que quieras contar. La IA lo usará como base, sin copiarlo.</p>
         <label class="field"><div><textarea id="notes" rows="6" placeholder="Por ejemplo: encuentro de antiguos alumnos del MBA en Madrid, el 8 de octubre a las 19:30 h, con cóctel…">${esc(d.brief)}</textarea></div></label>
         <button class="btn" data-act="notes">Seguir con estas ideas</button></div>
-      <div class="panel"><h2>✍️ Empiezo en blanco</h2><p class="hint">Te pregunto cada parte del email.</p><button class="btn" data-act="blank">Empezar</button></div>
+      <div class="panel"><h2><span class="h-ic">${ICONS.pen}</span>Empiezo en blanco</h2><p class="hint">Te pregunto cada parte del email.</p><button class="btn" data-act="blank">Empezar</button></div>
     </div>`;
   const notes = $("#notes");
   attachMic(notes);
@@ -1057,7 +1154,7 @@ function renderMessageQuestion(body, q, redraw) {
   const text = ensureModule("text");
   body.innerHTML = `<h2>¿Qué quieres contar?</h2><p class="hint">Pega, escribe o dicta las ideas. La IA redacta el título y el cuerpo con la guía de estilo; no copia tus notas.</p>
     <label class="field"><span>Tus ideas</span><div><textarea id="brief" rows="7">${esc(d.brief)}</textarea></div></label>
-    ${S.config.ai ? '<button class="btn primary" data-act="compose">✨ Redactar con IA</button>' : '<p class="hint">La IA no está activa en este entorno: escribe el texto directamente.</p>'}
+    ${S.config.ai ? '<button class="btn primary" data-act="compose"><i class=spark></i> Redactar con IA</button>' : '<p class="hint">La IA no está activa en este entorno: escribe el texto directamente.</p>'}
     <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
     ${fieldHtml(heading, S.config.modules.heading.fields[0])}
     ${fieldHtml(text, S.config.modules.text.fields[0])}`;
@@ -1091,7 +1188,7 @@ function renderAgendaQuestion(body, q, redraw) {
   const m = moduleOf("agenda");
   body.innerHTML = `<h2>${esc(q.title)}</h2><p class="hint">${esc(q.hint)}</p>
     <label class="field"><span>Agenda en texto libre</span><div><textarea id="agenda-free" rows="6" placeholder="19:00 h Bienvenida&#10;19:15 h Mesa redonda con…&#10;20:30 h Cóctel"></textarea></div></label>
-    <button class="btn" data-act="structure">${S.config.ai ? "✨ Ordenar agenda" : "Convertir en lista"}</button>
+    <button class="btn" data-act="structure">${S.config.ai ? "<i class=spark></i> Ordenar agenda" : "Convertir en lista"}</button>
     <div id="agenda-list" style="margin-top:16px">${m ? fieldHtml(m, S.config.modules.agenda.fields[1]) : ""}</div>`;
   bindFields(body, redraw);
   $('[data-act="structure"]', body).onclick = (e) => busy(e.currentTarget, async () => {
@@ -1141,7 +1238,7 @@ function renderSubjectQuestion(body, q, redraw) {
     <div id="subject-options" class="row" style="margin:-6px 0 16px">${S.subjectOptions.map((s) => `<button class="btn small" data-subject="${esc(s)}">${esc(s)}</button>`).join("")}</div>
     <label class="field"><span>Texto de vista previa (preheader)</span><input id="preheader" value="${esc(d.preheader)}" maxlength="200"><small>Aparece junto al asunto en la bandeja de entrada.</small></label>
     <label class="field"><span>Nombre interno del borrador</span><input id="name" value="${esc(d.name)}"></label>
-    ${S.config.ai ? '<button class="btn" data-act="suggest">✨ Proponer asuntos</button>' : ""}`;
+    ${S.config.ai ? '<button class="btn" data-act="suggest"><i class=spark></i> Proponer asuntos</button>' : ""}`;
   const bind = (id, key) => { const el = $(`#${id}`, body); el.oninput = () => { d[key] = el.value; touch(); }; };
   bind("subject", "subject"); bind("preheader", "preheader"); bind("name", "name");
   $$("[data-subject]", body).forEach((b) => b.onclick = () => { d.subject = b.dataset.subject; $("#subject", body).value = d.subject; touch(); });
@@ -1160,7 +1257,7 @@ function addPaintWriter(body, m) {
   const field = S.config.modules[m.type].fields.find((f) => f.kind === "longtext" || (f.ai && f.kind === "text"));
   if (!field || !S.config.ai || field.kind !== "longtext") return;
   const wrap = document.createElement("div");
-  wrap.innerHTML = `<label class="field"><span>Tus ideas para este texto</span><div><textarea id="paint-ideas" rows="4" placeholder="Pega o dicta los conceptos; la IA redacta el texto."></textarea></div></label><button class="btn" data-act="write">✨ Redactar con IA</button><hr style="border:0;border-top:1px solid var(--line);margin:18px 0">`;
+  wrap.innerHTML = `<label class="field"><span>Tus ideas para este texto</span><div><textarea id="paint-ideas" rows="4" placeholder="Pega o dicta los conceptos; la IA redacta el texto."></textarea></div></label><button class="btn" data-act="write"><i class=spark></i> Redactar con IA</button><hr style="border:0;border-top:1px solid var(--line);margin:18px 0">`;
   (body.querySelector(".hint") || body.querySelector("h2")).after(wrap);
   attachMic($("#paint-ideas", wrap));
   $('[data-act="write"]', wrap).onclick = (e) => busy(e.currentTarget, async () => {
@@ -1319,7 +1416,7 @@ function bindImagePicker(box, area, onChange) {
 function renderCustomQuestion(body, q) {
   const m = getModule(q.moduleId);
   const rebuild = `<label class="field"><span>Contenido para este módulo</span><div><textarea id="custom-answer" rows="6" placeholder="Escribe o dicta lo que debe contener.">${esc(m.answer || "")}</textarea></div></label>
-    <button class="btn ${m.html ? "" : "primary"}" data-act="build">${m.html ? "✨ Volver a crear el módulo" : "✨ Crear el módulo"}</button>
+    <button class="btn ${m.html ? "" : "primary"}" data-act="build">${m.html ? "<i class=spark></i> Volver a crear el módulo" : "<i class=spark></i> Crear el módulo"}</button>
     <p class="hint">La IA lo diseña dentro del marco de marca: colores, tipografía y estilos del IESE. Lo que no cumpla el marco se elimina.</p>`;
   body.innerHTML = `<h2>${esc(q.title)}</h2>${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
     ${m.html ? `<div class="field"><span>Edita el módulo</span><small>Haz clic en cualquier texto para cambiarlo. Selecciona texto para ponerlo en negrita, cursiva o convertirlo en enlace. Haz clic en una imagen o en el hueco «[IMAGEN]» para poner la tuya, o usa 🖼 para añadir una donde esté el cursor. Para cambios de diseño usa «Ajustes finos».</small>
@@ -1365,7 +1462,7 @@ function renderDescribe() {
     <p class="lead">Cuéntalo con tus palabras, escrito o dictado. Por ejemplo: «una cabecera con imagen y un texto encima que diga… y un botón a la inscripción; debajo un título, un texto, la agenda, otro botón y los accesos rápidos».</p>
     <div class="split"><div class="panel">
       <label class="field"><span>Tu descripción</span><div><textarea id="describe" rows="9">${esc(d.brief)}</textarea></div></label>
-      ${S.config.ai ? '<button class="btn primary" data-act="plan">✨ Diseñar la estructura</button>' : '<p class="hint">La IA no está activa en este entorno.</p>'}
+      ${S.config.ai ? '<button class="btn primary" data-act="plan"><i class=spark></i> Diseñar la estructura</button>' : '<p class="hint">La IA no está activa en este entorno.</p>'}
       <div id="plan" style="margin-top:20px"></div>
     </div>
     <div class="panel"><h2>Se añade solo</h2><p class="hint">El logo de tu área arriba, los accesos rápidos, el pie de marca y el texto legal se añaden solos. El logo de arriba lo puedes quitar después en el editor. Los colores, la tipografía y los botones siguen la marca.</p></div></div>`;
@@ -1442,21 +1539,21 @@ function renderEditor() {
   app.innerHTML = `<div class="split"><div class="panel">
       <h2>Editor</h2><p class="hint">Pulsa sobre cualquier parte del email para cambiarla.</p>
       <section class="tweaks" id="tweaks">
-        <h3>✨ Ajustes finos</h3>
+        <h3>${ICONS.spark} Pídeselo a la IA</h3>
         <p class="hint">Pide los últimos retoques que no salen en los campos. Por ejemplo: «quita un par de píxeles de espacio entre el título y la imagen» o «pon en negro el botón de Inscríbete».</p>
         <label class="field"><div><textarea id="tweak-text" rows="3" placeholder="Escribe o dicta el ajuste…"></textarea></div></label>
         <div class="row"><button type="button" class="btn primary small" data-act="tweak" ${S.config.ai ? "" : "disabled"}>Aplicar ajuste</button>
           ${S.config.ai ? "" : '<small class="hint">Necesita la IA, que no está activa en este entorno.</small>'}</div>
         ${(d.tweaks || []).length ? `<ul class="tweak-list">${d.tweaks.map((tw) => `<li data-tweak="${tw.id}"><span>${esc(tw.instruction)}</span><button type="button" class="icon-btn" data-untweak="${tw.id}" aria-label="Quitar este ajuste" title="Quitar este ajuste">✕</button></li>`).join("")}</ul>` : ""}
       </section>
-      <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="name fixed-name">Logo ${esc(areaLabel(d.area))}${S.config.areas[d.area || "alumni"]?.logo ? "" : " (pendiente)"}${d.hideLogo ? " (quitado)" : ""}</span>
+      <ul class="modules"><li class="${d.hideLogo ? "off" : ""}"><span class="grip none"></span><span class="mod-ic">${ICONS.shield}</span><span class="name fixed-name">Logo ${esc(areaLabel(d.area))}${S.config.areas[d.area || "alumni"]?.logo ? "" : " (pendiente)"}${d.hideLogo ? " (quitado)" : ""}</span>
           <button class="${d.hideLogo ? "btn small" : "icon-btn"}" data-act="logo" aria-label="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}" title="${d.hideLogo ? "Volver a poner el logo" : "Quitar el logo"}">${d.hideLogo ? "Volver a poner" : "✕"}</button></li>
-        ${d.modules.map((m, i) => `<li class="${m.id === S.selected ? "selected" : ""}"><button class="name" data-sel="${m.id}">${esc(t(S.config.modules[m.type].label))}</button>
+        ${d.modules.map((m, i) => `<li class="${m.id === S.selected ? "selected" : ""}" draggable="true" data-drag="${i}"><span class="grip" title="Arrastra para mover">${ICONS.grip}</span><span class="mod-ic">${ICONS[MODULE_ICONS[m.type]] || ICONS.text}</span><button class="name" data-sel="${m.id}">${esc(t(S.config.modules[m.type].label))}</button>
           <button class="icon-btn" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
           <button class="icon-btn" data-mv="${i}|1" ${i === d.modules.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
           <button class="icon-btn" data-rm="${m.id}" ${required.has(m.type) && d.modules.filter((x) => x.type === m.type).length === 1 ? "disabled title=\"Obligatorio en esta plantilla\"" : ""} aria-label="Quitar">✕</button></li>`).join("")}
-        <li class="${S.selected === "quicklinks" ? "selected" : ""}"><button class="name" data-sel="quicklinks">Accesos rápidos (enlaces de los 4 iconos)</button></li>
-        <li><span class="fixed">Pie de marca y texto legal (fijos)</span></li></ul>
+        <li class="${S.selected === "quicklinks" ? "selected" : ""}"><span class="grip none"></span><span class="mod-ic">${ICONS.grid}</span><button class="name" data-sel="quicklinks">Accesos rápidos (enlaces de los 4 iconos)</button></li>
+        <li class="fixed-row"><span class="grip none"></span><span class="mod-ic">${ICONS.shield}</span><span class="fixed">Pie de marca y texto legal (fijos)</span></li></ul>
       ${options ? `<div class="row"><select id="add-type" class="btn">${options}</select><button class="btn small" data-act="add">+ Añadir módulo</button></div>` : ""}
       <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
       <div id="module-form">${S.selected === "quicklinks" ? quickLinksForm() : sel ? `<h2>${esc(t(S.config.modules[sel.type].label))}</h2>${sel.type === "custom" ? "" : S.config.modules[sel.type].fields.map((f) => fieldHtml(sel, f)).join("")}` : ""}</div>
@@ -1469,6 +1566,32 @@ function renderEditor() {
   $$("[data-sel]").forEach((b) => b.onclick = () => { S.selected = b.dataset.sel; renderEditor(); });
   $$("[data-mv]").forEach((b) => b.onclick = () => { const [i, dir] = b.dataset.mv.split("|").map(Number); [d.modules[i], d.modules[i + dir]] = [d.modules[i + dir], d.modules[i]]; touch(); renderEditor(); });
   $$("[data-rm]").forEach((b) => b.onclick = () => { d.modules = d.modules.filter((m) => m.id !== b.dataset.rm); touch(); renderEditor(); });
+  // Drag a module by its handle to another position; the arrows do the same.
+  let dragged = null;
+  $$("[data-drag]").forEach((li) => {
+    li.ondragstart = (e) => { dragged = Number(li.dataset.drag); li.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(dragged)); };
+    li.ondragend = () => { dragged = null; $$("[data-drag]").forEach((x) => x.classList.remove("dragging", "drop-before", "drop-after")); };
+    li.ondragover = (e) => {
+      if (dragged === null) return;
+      e.preventDefault();
+      const after = e.clientY > li.getBoundingClientRect().top + li.offsetHeight / 2;
+      $$("[data-drag]").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+      li.classList.add(after ? "drop-after" : "drop-before");
+    };
+    li.ondrop = (e) => {
+      if (dragged === null) return;
+      e.preventDefault();
+      const from = dragged;
+      let to = Number(li.dataset.drag) + (li.classList.contains("drop-after") ? 1 : 0);
+      if (to > from) to -= 1;
+      dragged = null;
+      if (to === from) return renderEditor();
+      const [moved] = d.modules.splice(from, 1);
+      d.modules.splice(to, 0, moved);
+      touch();
+      renderEditor();
+    };
+  });
   const add = $('[data-act="add"]');
   if (add) add.onclick = () => {
     const m = blankModule($("#add-type").value);
@@ -1564,7 +1687,7 @@ function renderReview() {
   app.innerHTML = `<div class="split"><div class="panel">
       <h2>Revisión</h2>
       <ul class="checklist" id="checks"><li>Comprobando…</li></ul>
-      ${S.config.ai ? '<button class="btn" data-act="style">✨ Revisar estilo con IA</button><div id="issues" style="margin-top:12px"></div>' : ""}
+      ${S.config.ai ? '<button class="btn" data-act="style"><i class=spark></i> Revisar estilo con IA</button><div id="issues" style="margin-top:12px"></div>' : ""}
       <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
       <label class="field"><span>Asunto</span><input id="subject" value="${esc(d.subject)}"></label>
       <label class="field"><span>Texto de vista previa</span><input id="preheader" value="${esc(d.preheader)}"></label>
@@ -1694,6 +1817,7 @@ async function loadDraft(id) {
 
 async function render() {
   banner.hidden = true;
+  paintAreaSwitch(false);
   const [, page, id, step, n] = location.hash.split("/");
   paintBrand(page && page !== "admin" ? currentArea() : "aura");
   try {
@@ -1725,6 +1849,7 @@ async function boot() {
     return;
   }
   document.getElementById("user").textContent = S.config.user.name || "";
+  document.getElementById("avatar").textContent = initials(S.config.user.name || S.config.user.email);
   // Signed in with Microsoft: closing the session lets another account sign in.
   document.getElementById("logout").hidden = !S.config.user.email;
   const mode = document.getElementById("mode");

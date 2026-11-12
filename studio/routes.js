@@ -103,6 +103,17 @@ function cleanDraftFields(input, current = {}) {
   return fields;
 }
 
+// Microsoft often gives the name as "Surname, First name"; show it as
+// "First name Surname" so greetings use the first name.
+export function displayName(name) {
+  const text = String(name || "").trim().replace(/\s+/g, " ");
+  const comma = text.indexOf(",");
+  if (comma < 0) return text;
+  const surname = text.slice(0, comma).trim();
+  const first = text.slice(comma + 1).trim();
+  return first && surname ? `${first} ${surname}` : first || surname;
+}
+
 export function getUser(request, env = process.env) {
   const headers = request.headers;
   const encoded = headers["x-ms-client-principal"];
@@ -115,7 +126,7 @@ export function getUser(request, env = process.env) {
   }
   const email = String(headers["x-ms-client-principal-name"] || "");
   const id = String(headers["x-ms-client-principal-id"] || email || "");
-  if (id) return { id, email, name: name || email.split("@")[0] };
+  if (id) return { id, email, name: displayName(name) || email.split("@")[0] };
   if (loginRequired(env)) throw new HttpError("Inicia sesión con tu cuenta del IESE.", 401);
   return { id: "local-user", email: "", name: "Usuario local" };
 }

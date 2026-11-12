@@ -1848,6 +1848,7 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
+  ".woff2": "font/woff2",
 };
 
 async function serveStatic(request, response) {
