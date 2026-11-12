@@ -103,6 +103,17 @@ function cleanDraftFields(input, current = {}) {
   return fields;
 }
 
+// Microsoft often gives the name as "Surname, First name"; show it as
+// "First name Surname" so greetings use the first name.
+export function displayName(name) {
+  const text = String(name || "").trim().replace(/\s+/g, " ");
+  const comma = text.indexOf(",");
+  if (comma < 0) return text;
+  const surname = text.slice(0, comma).trim();
+  const first = text.slice(comma + 1).trim();
+  return first && surname ? `${first} ${surname}` : first || surname;
+}
+
 export function getUser(request, env = process.env) {
   const headers = request.headers;
   const encoded = headers["x-ms-client-principal"];
@@ -115,7 +126,7 @@ export function getUser(request, env = process.env) {
   }
   const email = String(headers["x-ms-client-principal-name"] || "");
   const id = String(headers["x-ms-client-principal-id"] || email || "");
-  if (id) return { id, email, name: name || email.split("@")[0] };
+  if (id) return { id, email, name: displayName(name) || email.split("@")[0] };
   if (loginRequired(env)) throw new HttpError("Inicia sesión con tu cuenta del IESE.", 401);
   return { id: "local-user", email: "", name: "Usuario local" };
 }
@@ -166,8 +177,11 @@ export function assetsFor(request, env = process.env, area = "alumni") {
   if (areaOf(area) === "alumni") {
     if (settings.logoUrl || env.BRAND_HEADER_LOGO_URL) assets.logoUrl = settings.logoUrl || env.BRAND_HEADER_LOGO_URL;
   } else {
-    // No Alumni logo on another area's emails: no logo until one is set.
+    // No Alumni logo on another area's emails, and no row of four icons:
+    // those are the Alumni quick links.
     assets.logoUrl = settings.logoUrl;
+    for (const q of QUICK_LINKS) assets.quickLinks[q.key] = "";
+    assets.hideQuickLinks = true;
   }
   assets.logoAlt = AREAS[areaOf(area)].logoAlt;
   if (env.BRAND_FOOTER_LOGO_URL) assets.footerLogoUrl = env.BRAND_FOOTER_LOGO_URL;
@@ -340,7 +354,7 @@ export function createStudioHandler(deps, env = process.env) {
       const defaults = deps.runtimeDefaults();
       return send(response, 200, {
         user: { name: user.name, email: user.email, admin: access.admin, areas: access.areas },
-        areas: Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, { label: a.label, logo: Boolean(assetsFor(request, env, k).logoUrl) }])),
+        areas: Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, { label: a.label, logo: Boolean(assetsFor(request, env, k).logoUrl), quickLinks: !assetsFor(request, env, k).hideQuickLinks }])),
         ai: ai.available(),
         dryRun: dryRun(),
         brand: BRAND,
@@ -348,7 +362,7 @@ export function createStudioHandler(deps, env = process.env) {
         modules: MODULES,
         guides: GUIDE_VERSIONS,
         pardot: { campaignId: defaults.campaignId, folderId: defaults.folderId },
-        quickLinks: QUICK_LINKS.map((q) => ({ key: q.key, label: q.label, url: assetsFor(request, env).quickLinks[q.key] || "" })),
+        quickLinks: QUICK_LINKS.map((q) => ({ key: q.key, label: q.label, url: assetsFor(request, env).quickLinks[q.key] || "", urls: Object.fromEntries(Object.keys(AREAS).map((a) => [a, assetsFor(request, env, a).quickLinks[q.key] || ""])) })),
       });
     }
 

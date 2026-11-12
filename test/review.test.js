@@ -164,3 +164,30 @@ test("the old generator and the Salesforce connection are for administrators onl
   assert.equal((await get("/", "boss@iese.edu")).status, 200);
   assert.equal((await get("/api/config", "boss@iese.edu")).status, 200);
 });
+
+test("names given as \"Surname, First name\" are shown first name first", async () => {
+  const { displayName } = await import("../studio/routes.js");
+  assert.equal(displayName("Espinosa, Miki"), "Miki Espinosa");
+  assert.equal(displayName("Ana Pérez"), "Ana Pérez");
+  assert.equal(displayName(""), "");
+  const principal = Buffer.from(JSON.stringify({ claims: [{ typ: "name", val: "Espinosa, Miki" }] })).toString("base64");
+  assert.equal(getUser({ headers: { "x-ms-client-principal": principal, "x-ms-client-principal-name": "m@iese.edu", "x-ms-client-principal-id": "1" } }, {}).name, "Miki Espinosa");
+});
+
+test("Alumni emails link the four icons by default; other areas do not", async () => {
+  const { renderEmail } = await import("../studio/brand.js");
+  const { assetsFor } = await import("../studio/routes.js");
+  const request = { headers: {} };
+  const draft = { template: "invite", language: "es", subject: "A", preheader: "", modules: [] };
+  const alumni = renderEmail(draft, { assets: assetsFor(request, {}, "alumni") }).html;
+  for (const href of ["https://www.linkedin.com/showcase/iese-alumni/", "mailto:alumnicommunity@iese.edu", "https://formscloud.iese.edu/landings-alumni-app-es/", "https://www.alumni.iese.edu/"]) {
+    assert.ok(alumni.includes(`href="${href}"`), href);
+  }
+  const programa = renderEmail(draft, { assets: assetsFor(request, {}, "programa") }).html;
+  assert.ok(!programa.includes("alumnicommunity@iese.edu"));
+  // Programa emails have no row of four icons at all.
+  const icons = assetsFor(request, {}, "alumni").icons;
+  assert.ok(alumni.includes(icons.web));
+  for (const src of Object.values(icons)) assert.ok(!programa.includes(src), src);
+  assert.equal(assetsFor(request, { QUICK_LINK_WEB_URL: "https://x.example/" }, "alumni").quickLinks.web, "https://x.example/");
+});

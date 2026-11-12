@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>A.U.R.A. · IESE Alumni</title>
+  <title>A.U.R.A. · IESE</title>
   <link rel="icon" href="/brand/icons/email.png">
   <link rel="stylesheet" href="/studio/studio.css">
   <script type="module" src="/studio/studio.js"></script>
@@ -15,8 +15,10 @@
       <span class="aura" tabindex="0" aria-describedby="aura-tip">A.U.R.A.<span id="aura-tip" class="aura-tip" role="tooltip">Automated UI Rendering Assistant</span></span>
     </a>
     <div class="topbar-right">
+      <span id="area-switch" class="area-switch" role="group" aria-label="Área" hidden></span>
       <span id="mode" class="mode" hidden></span>
-      <div class="who"><span id="user" class="user"></span><a id="logout" class="logout" href="/.auth/logout?post_logout_redirect_uri=/studio/" hidden>Cerrar sesión</a></div>
+      <div class="who"><span id="avatar" class="avatar" aria-hidden="true"></span>
+        <div class="who-text"><span id="user" class="user"></span><a id="logout" class="logout" href="/.auth/logout?post_logout_redirect_uri=/studio/" hidden>Cerrar sesión</a></div></div>
     </div>
   </header>
   <nav id="stepper" class="stepper" aria-label="Pasos" hidden></nav>
