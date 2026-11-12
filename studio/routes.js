@@ -177,9 +177,11 @@ export function assetsFor(request, env = process.env, area = "alumni") {
   if (areaOf(area) === "alumni") {
     if (settings.logoUrl || env.BRAND_HEADER_LOGO_URL) assets.logoUrl = settings.logoUrl || env.BRAND_HEADER_LOGO_URL;
   } else {
-    // No Alumni logo or Alumni links on another area's emails until its own are set.
+    // No Alumni logo on another area's emails, and no row of four icons:
+    // those are the Alumni quick links.
     assets.logoUrl = settings.logoUrl;
     for (const q of QUICK_LINKS) assets.quickLinks[q.key] = "";
+    assets.hideQuickLinks = true;
   }
   assets.logoAlt = AREAS[areaOf(area)].logoAlt;
   if (env.BRAND_FOOTER_LOGO_URL) assets.footerLogoUrl = env.BRAND_FOOTER_LOGO_URL;
@@ -352,7 +354,7 @@ export function createStudioHandler(deps, env = process.env) {
       const defaults = deps.runtimeDefaults();
       return send(response, 200, {
         user: { name: user.name, email: user.email, admin: access.admin, areas: access.areas },
-        areas: Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, { label: a.label, logo: Boolean(assetsFor(request, env, k).logoUrl) }])),
+        areas: Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, { label: a.label, logo: Boolean(assetsFor(request, env, k).logoUrl), quickLinks: !assetsFor(request, env, k).hideQuickLinks }])),
         ai: ai.available(),
         dryRun: dryRun(),
         brand: BRAND,

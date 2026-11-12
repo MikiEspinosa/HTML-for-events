@@ -1510,6 +1510,9 @@ function renderDescribe() {
 }
 
 // The four icons above the footer: each draft can point them elsewhere.
+// The row of four icons belongs to Alumni emails; other areas do not have it.
+const hasQuickLinks = (d) => S.config.areas[d.area || "alumni"]?.quickLinks !== false;
+
 function quickLinksForm() {
   const d = S.draft;
   return `<h2>Accesos rápidos</h2><p class="hint">Los 4 iconos que van encima del pie. Cambia a dónde lleva cada uno en este email. Si dejas un campo vacío se usa el enlace por defecto de la app.</p>
@@ -1534,6 +1537,7 @@ function bindQuickLinks(form) {
 function renderEditor() {
   setStep("editor");
   const d = S.draft;
+  if (S.selected === "quicklinks" && !hasQuickLinks(d)) S.selected = null;
   if (S.selected !== "quicklinks" && (!S.selected || !getModule(S.selected))) S.selected = d.modules[0]?.id || null;
   const tpl = S.config.templates[d.template];
   const required = new Set(tpl.required);
@@ -1555,7 +1559,7 @@ function renderEditor() {
           <button class="icon-btn" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
           <button class="icon-btn" data-mv="${i}|1" ${i === d.modules.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
           <button class="icon-btn" data-rm="${m.id}" ${required.has(m.type) && d.modules.filter((x) => x.type === m.type).length === 1 ? "disabled title=\"Obligatorio en esta plantilla\"" : ""} aria-label="Quitar">✕</button></li>`).join("")}
-        <li class="${S.selected === "quicklinks" ? "selected" : ""}"><span class="grip none"></span><span class="mod-ic">${ICONS.grid}</span><button class="name" data-sel="quicklinks">Accesos rápidos (enlaces de los 4 iconos)</button></li>
+        ${hasQuickLinks(d) ? `<li class="${S.selected === "quicklinks" ? "selected" : ""}"><span class="grip none"></span><span class="mod-ic">${ICONS.grid}</span><button class="name" data-sel="quicklinks">Accesos rápidos (enlaces de los 4 iconos)</button></li>` : ""}
         <li class="fixed-row"><span class="grip none"></span><span class="mod-ic">${ICONS.shield}</span><span class="fixed">Pie de marca y texto legal (fijos)</span></li></ul>
       ${options ? `<div class="row"><select id="add-type" class="btn">${options}</select><button class="btn small" data-act="add">+ Añadir módulo</button></div>` : ""}
       <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">

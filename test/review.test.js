@@ -185,5 +185,9 @@ test("Alumni emails link the four icons by default; other areas do not", async (
   }
   const programa = renderEmail(draft, { assets: assetsFor(request, {}, "programa") }).html;
   assert.ok(!programa.includes("alumnicommunity@iese.edu"));
+  // Programa emails have no row of four icons at all.
+  const icons = assetsFor(request, {}, "alumni").icons;
+  assert.ok(alumni.includes(icons.web));
+  for (const src of Object.values(icons)) assert.ok(!programa.includes(src), src);
   assert.equal(assetsFor(request, { QUICK_LINK_WEB_URL: "https://x.example/" }, "alumni").quickLinks.web, "https://x.example/");
 });

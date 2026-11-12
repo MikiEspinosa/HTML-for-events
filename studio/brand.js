@@ -568,7 +568,7 @@ export function renderParts(draft, { assets = defaultAssets(), preview = false }
   }
   const quickLinks = { ...assets.quickLinks };
   for (const q of QUICK_LINKS) if (draft.quickLinks?.[q.key]) quickLinks[q.key] = draft.quickLinks[q.key];
-  add("quicklinks", FIXED_PARTS.quicklinks[language], quickLinksRow(language, { ...assets, quickLinks }), preview ? ' data-module-id="quicklinks" data-module-type="quicklinks"' : "");
+  if (!assets.hideQuickLinks) add("quicklinks", FIXED_PARTS.quicklinks[language], quickLinksRow(language, { ...assets, quickLinks }), preview ? ' data-module-id="quicklinks" data-module-type="quicklinks"' : "");
   add("footer", FIXED_PARTS.footer[language], brandFooterRow(assets));
   add("legal", FIXED_PARTS.legal[language], legalRow(language));
   return { language, parts, tweaks: reports };
