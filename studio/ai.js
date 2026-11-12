@@ -39,10 +39,20 @@ function examplesBlock(examples) {
   return `\n\nApproved emails from the team. Match their tone, length and structure, not their facts:\n${shown}`;
 }
 
+// Who the emails speak for, by area of the studio.
+const ORGANIZATIONS = {
+  alumni: { name: "IESE Alumni", intro: "You work for IESE Alumni on email communications to IESE alumni." },
+  programa: { name: "IESE Business School", intro: "You work for IESE Business School on email communications about its programs (IESE Programs), written for program participants and prospective participants, not for the alumni community." },
+};
+
+export function organization(area) {
+  return ORGANIZATIONS[area] || ORGANIZATIONS.alumni;
+}
+
 // Shared beginning of every prompt that follows the style guide.
-export function sharedContext({ language, examples }) {
+export function sharedContext({ language, examples, area }) {
   return [
-    "You work for IESE Alumni on email communications. The style rules and approved examples below apply to every task; the task comes after them.",
+    `${organization(area).intro} The style rules and approved examples below apply to every task; the task comes after them.`,
     rulesFor(language),
   ].join("\n") + examplesBlock(examples);
 }
@@ -86,16 +96,16 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
     },
 
     // First full draft of an invitation from facts and the user's notes.
-    async writeInvitation({ language, facts, notes, examples }) {
+    async writeInvitation({ language, facts, notes, examples, area }) {
       const instructions = [
-        `You are a senior copywriter at IESE Alumni writing an event invitation email in ${LANGUAGE_NAME[language]}.`,
+        `You are a senior copywriter at ${organization(area).name} writing an event invitation email in ${LANGUAGE_NAME[language]}.`,
         "Base the copy on the facts and the user's notes, but write it yourself: do not copy the notes literally.",
         "Return JSON with keys: subjects (array of 3 subject lines, under 60 characters), preheader (under 90 characters), heroTitle (under 45 characters, the event name or a short hook), heroSubtitle (the date in the event format of the style guide), heading (a short title for the email body), body (2 to 4 short paragraphs separated by a blank line; you may use **bold** for key details; no greeting, no sign-off, no button text), ctaLabel (2 or 3 words).",
       ].join("\n");
-      return askJson(instructions, { facts, notes }, { language, examples });
+      return askJson(instructions, { facts, notes }, { language, examples, area });
     },
 
-    async rewrite({ language, action, text, context, examples }) {
+    async rewrite({ language, action, text, context, examples, area }) {
       const tasks = {
         write: "Write this text from the notes given. Do not copy the notes literally.",
         improve: "Improve this text: clearer, warmer, more concise, without changing facts.",
@@ -103,16 +113,16 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         fix: "Correct this text so it follows the style guide rules. Change as little as possible.",
       };
       const instructions = [
-        `You edit copy for IESE Alumni emails in ${LANGUAGE_NAME[language]}. ${tasks[action] || tasks.improve}`,
+        `You edit copy for ${organization(area).name} emails in ${LANGUAGE_NAME[language]}. ${tasks[action] || tasks.improve}`,
         "Keep **bold** and [label](url) markup and every link and personalization field exactly. Return only the resulting text.",
       ].join("\n");
-      return (await ask(instructions, { text, context }, { language, examples })).trim();
+      return (await ask(instructions, { text, context }, { language, examples, area })).trim();
     },
 
     // Chat attached to one text field: writes new text or edits the current one.
-    async chatField({ language, field, multiline, text, messages, context, examples }) {
+    async chatField({ language, field, multiline, text, messages, context, examples, area }) {
       const instructions = [
-        `You are the writing assistant of the IESE Alumni email studio. You work on one field of an email in ${LANGUAGE_NAME[language]}: "${field}".`,
+        `You are the writing assistant of the ${organization(area).name} email studio. You work on one field of an email in ${LANGUAGE_NAME[language]}: "${field}".`,
         "The user chats with you to get new text for that field or to change the text it already has (tone, person, length, focus...). Apply each request to the current text unless the user asks for something new.",
         multiline
           ? "The field is a body text: use short paragraphs separated by a blank line. You may use **bold**, *italic*, [label](https://url) and lists with lines starting with \"- \". No greeting, no sign-off and no button text unless asked."
@@ -120,16 +130,16 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "Use the facts in the email context. Never invent dates, times, places, prices, names or links. Keep links and fields like {{Recipient.FirstName}} exactly.",
         "Return JSON {reply, text}. reply is one short sentence for the user, in the language the user writes in, saying what you did or asking what you need. text is the complete new text for the field, written in the email language, or an empty string when you only answer or need more information.",
       ].join("\n");
-      const result = await askJson(instructions, { currentText: text, emailContext: context, conversation: messages }, { language, examples });
+      const result = await askJson(instructions, { currentText: text, emailContext: context, conversation: messages }, { language, examples, area });
       let next = typeof result?.text === "string" ? result.text.trim() : "";
       if (!multiline) next = next.replace(/\s*\n+\s*/g, " ");
       return { reply: String(result?.reply || "").trim(), text: next };
     },
 
     // Fine adjustments: exact find/replace edits on the HTML of the email parts.
-    async tweakHtml({ instruction, parts }) {
+    async tweakHtml({ instruction, parts, area }) {
       const instructions = [
-        "You make small, precise adjustments to the HTML of an IESE Alumni email, as asked by the user (spacing, colours, sizes, alignment, borders, wording of one element...).",
+        `You make small, precise adjustments to the HTML of an ${organization(area).name} email, as asked by the user (spacing, colours, sizes, alignment, borders, wording of one element...).`,
         "The email is split into parts. Each part has a scope id, a label and its HTML (table rows with inline styles).",
         "Return JSON {reply, ops}. ops is an array of {scope, find, replace}: find is an exact substring copied character by character from the HTML of that scope, short but unique inside it; replace is what goes in its place. Change only what the request needs.",
         "Keep email-safe HTML: tables, inline styles only, no scripts, no event attributes, no forms, no <style> blocks. When changing a background colour of a cell, change both the bgcolor attribute and the background in the style. Keep links, images and fields like {{Recipient.FirstName}}.",
@@ -139,21 +149,21 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
       return { reply: String(result?.reply || "").trim(), ops: Array.isArray(result?.ops) ? result.ops : [] };
     },
 
-    async structureAgenda({ language, text }) {
+    async structureAgenda({ language, text, area }) {
       const instructions = [
         "Turn this agenda, written or dictated freely, into a list of agenda items.",
         "Return a JSON array of {time, text}. time is HH:MM in 24h format or empty when not given. text is short and follows the style rules.",
       ].join("\n");
-      const items = await askJson(instructions, text, { language });
+      const items = await askJson(instructions, text, { language, area });
       return Array.isArray(items) ? items.filter((i) => i && i.text).map((i) => ({ time: String(i.time || ""), text: String(i.text) })) : [];
     },
 
-    async suggestSubjects({ language, draft, examples }) {
+    async suggestSubjects({ language, draft, examples, area }) {
       const instructions = [
-        `Propose a subject line and preheader for this IESE Alumni email in ${LANGUAGE_NAME[language]}.`,
+        `Propose a subject line and preheader for this ${organization(area).name} email in ${LANGUAGE_NAME[language]}.`,
         "Return JSON with keys subjects (array of 3, under 60 characters each) and preheader (under 90 characters).",
       ].join("\n");
-      return askJson(instructions, collectTexts(draft), { language, examples });
+      return askJson(instructions, collectTexts(draft), { language, examples, area });
     },
 
     async translate({ draft, target }) {
@@ -164,7 +174,7 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "Keep names of people, programs and brands, links, numbers, **bold**, [label](url) markup, HTML tags and fields like {{Recipient.FirstName}} unchanged.",
         "Dates and times must follow the target style guide.",
       ].join("\n");
-      const translated = await askJson(instructions, texts, { language: target });
+      const translated = await askJson(instructions, texts, { language: target, area: draft.area });
       for (const key of Object.keys(texts)) {
         if (typeof translated[key] !== "string") throw new AiError("La traducción llegó incompleta. Inténtalo de nuevo.");
         for (const token of texts[key].match(/\{\{\{?[\w.]+\}?\}\}/g) || []) {
@@ -176,33 +186,33 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
 
     async reviewStyle({ draft }) {
       const instructions = [
-        "You check an IESE Alumni email against the style guide rules above.",
+        `You check an ${organization(draft.area).name} email against the style guide rules above.`,
         "Return a JSON array of issues. Each issue: {key, quote (the exact words that break a rule), rule (which rule, in Spanish, short), suggestion (the corrected words)}. Return [] when everything follows the rules.",
         "Report only real breaches of the listed rules, not taste.",
       ].join("\n");
-      const issues = await askJson(instructions, collectTexts(draft), { language: draft.language });
+      const issues = await askJson(instructions, collectTexts(draft), { language: draft.language, area: draft.area });
       return Array.isArray(issues) ? issues.filter((i) => i && i.quote).slice(0, 20) : [];
     },
 
     // Pinta y Colorea: from a free description to a plan of modules.
-    async planLayout({ language, description, examples }) {
+    async planLayout({ language, description, examples, area }) {
       const catalog = Object.entries(MODULES)
         .filter(([type]) => type !== "custom")
         .map(([type, def]) => `${type}: ${def.label.en}`)
         .join("; ");
       const instructions = [
-        "You design the structure of an IESE Alumni email from the user's description.",
+        `You design the structure of an ${organization(area).name} email from the user's description.`,
         `Available modules: ${catalog}. Use them whenever they fit.`,
         "If the user asks for something none of them covers, use type \"custom\" and describe what it should contain.",
         "The logo, quick links and footers are added automatically; never include them.",
         `Return JSON {modules: [{type, purpose, question, prefill}]} in order. question is what the app must ask the user to fill that module, in ${language === "en" ? "English" : "Spanish"}, friendly and short (for example, ask for the image URL, the text over the image, where the button goes, the ideas for the body, the agenda). prefill is an object with any field values the description already gives, using the module's field keys.`,
       ].join("\n");
-      const plan = await askJson(instructions, description, { language, examples });
+      const plan = await askJson(instructions, description, { language, examples, area });
       const modules = Array.isArray(plan?.modules) ? plan.modules : [];
       return modules.filter((m) => MODULES[m.type]).slice(0, 15);
     },
 
-    async buildCustomModule({ language, purpose, answer }) {
+    async buildCustomModule({ language, purpose, answer, area }) {
       const instructions = [
         `You build one block of an IESE email in ${LANGUAGE_NAME[language]}, as an HTML fragment that goes inside a 556 px wide table cell.`,
         "Brand framework, mandatory: tables for layout, inline styles only, Arial, sizes from 13 to 28 px, colours only #FF2800 (red), #000000, #1A1A1A, #666666, #F5F5F5, #E6E6E6 and #FFFFFF.",
@@ -211,7 +221,7 @@ export function createAi({ getClient, buildRequest, extractText, onUsage }) {
         "When the block needs an image and the user gave no URL, leave its place as a table cell whose only content is the text [IMAGEN], with the width the image should have; the user fills it in the editor. Do not draw grey boxes or fixed heights for images.",
         "Return JSON {html}.",
       ].join("\n");
-      const result = await askJson(instructions, { purpose, content: answer }, { language });
+      const result = await askJson(instructions, { purpose, content: answer }, { language, area });
       return String(result?.html || "");
     },
   };

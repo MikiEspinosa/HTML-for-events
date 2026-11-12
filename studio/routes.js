@@ -116,8 +116,16 @@ export function getUser(request, env = process.env) {
   const email = String(headers["x-ms-client-principal-name"] || "");
   const id = String(headers["x-ms-client-principal-id"] || email || "");
   if (id) return { id, email, name: name || email.split("@")[0] };
-  if (String(env.STUDIO_REQUIRE_LOGIN).toLowerCase() === "true") throw new HttpError("Inicia sesión con tu cuenta del IESE.", 401);
+  if (loginRequired(env)) throw new HttpError("Inicia sesión con tu cuenta del IESE.", 401);
   return { id: "local-user", email: "", name: "Usuario local" };
+}
+
+// Sign-in is always required in production (the container image sets
+// NODE_ENV=production), whatever STUDIO_REQUIRE_LOGIN says: without it the
+// anonymous local user would be an administrator. Only local development
+// works without sign-in.
+export function loginRequired(env = process.env) {
+  return String(env.NODE_ENV).toLowerCase() === "production" || String(env.STUDIO_REQUIRE_LOGIN).toLowerCase() === "true";
 }
 
 async function readBody(request, limit) {
@@ -266,7 +274,22 @@ export function createStudioHandler(deps, env = process.env) {
   const published = new Map();
 
   async function examplesFor(draft) {
-    return store.findExamples({ template: draft.template, language: draft.language });
+    return store.findExamples({ template: draft.template, language: draft.language, area: areaOf(draft.area) });
+  }
+
+  // Learned examples for the admin panel, with who taught each one.
+  async function adminExamples() {
+    const [list, people] = await Promise.all([store.listExamples(), users.list()]);
+    const byKey = new Map(people.map((u) => [u.key, u]));
+    return list.map((e) => {
+      const author = byKey.get(e.author);
+      return {
+        id: e.id, area: areaOf(e.area), language: e.language, template: e.template, subject: e.subject || "", preheader: e.preheader || "",
+        status: e.status || "approved", createdAt: e.createdAt || "", reviewedAt: e.reviewedAt || "",
+        author: author ? author.name || author.email : "",
+        text: (e.modules || []).map((m) => [m.title, m.subtitle, m.heading, m.text, m.body].filter(Boolean).join("\n")).filter(Boolean).join("\n\n").slice(0, 3000),
+      };
+    });
   }
 
   // Pardot campaign and folder of an area; the app defaults when not set.
@@ -333,6 +356,16 @@ export function createStudioHandler(deps, env = process.env) {
       if (!access.admin) throw new HttpError("Solo los administradores pueden ver esto.", 403);
       if (parts[1] === "users" && !parts[2] && method === "GET") return send(response, 200, { users: await adminUsers() });
       if (parts[1] === "usage" && !parts[2] && method === "GET") return send(response, 200, { months: await usage.months(), prices: usage.prices });
+      if (parts[1] === "examples" && !parts[2] && method === "GET") return send(response, 200, { examples: await adminExamples() });
+      if (parts[1] === "examples" && parts[2] && !parts[3] && method === "PUT") {
+        const body = await readJson(request);
+        await store.reviewExample(parts[2], body.approved === true);
+        return send(response, 200, { examples: await adminExamples() });
+      }
+      if (parts[1] === "examples" && parts[2] && !parts[3] && method === "DELETE") {
+        await store.deleteExample(parts[2]);
+        return send(response, 200, { examples: await adminExamples() });
+      }
       if (parts[1] === "users" && /^[a-f0-9]{24}$/.test(parts[2] || "") && method === "PUT") {
         const body = await readJson(request);
         await users.update(parts[2], { access: body.access, admin: body.admin });
@@ -438,8 +471,8 @@ export function createStudioHandler(deps, env = process.env) {
         }
         let saved = await store.saveDraft(user.id, id, { publishedAt: new Date().toISOString(), pardotResult: { url: result.url || "", dryRun: result.dryRun } }, draft.version);
         if (body.learn === true) {
-          await store.addExample(saved);
-          result.learned = true;
+          const example = await store.addExample(saved, { approved: access.admin === true });
+          result.learned = example.status === "approved" ? true : "pending";
         }
         await users.count(user.id, "published");
         result.draft = saved;
@@ -491,12 +524,14 @@ export function createStudioHandler(deps, env = process.env) {
     if (method === "POST" && parts[0] === "ai") {
       const body = await readJson(request);
       const language = LANGUAGES.includes(body.language) ? body.language : "es";
-      const draftLike = { template: body.template || "invite", language };
+      // The area the person is writing for; one they cannot use falls back to their own.
+      const area = access.areas.includes(body.area) ? body.area : access.areas[0];
+      const draftLike = { template: body.template || "invite", language, area };
       switch (parts[1]) {
         case "compose":
-          return send(response, 200, await ai.writeInvitation({ language, facts: body.facts || {}, notes: String(body.notes || "").slice(0, 20000), examples: await examplesFor(draftLike) }));
+          return send(response, 200, await ai.writeInvitation({ language, area, facts: body.facts || {}, notes: String(body.notes || "").slice(0, 20000), examples: await examplesFor(draftLike) }));
         case "rewrite":
-          return send(response, 200, { text: await ai.rewrite({ language, action: body.action, text: String(body.text || "").slice(0, 20000), context: body.context || "", examples: await examplesFor(draftLike) }) });
+          return send(response, 200, { text: await ai.rewrite({ language, area, action: body.action, text: String(body.text || "").slice(0, 20000), context: body.context || "", examples: await examplesFor(draftLike) }) });
         case "chat": {
           const messages = (Array.isArray(body.messages) ? body.messages : []).slice(-12)
             .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
@@ -507,6 +542,7 @@ export function createStudioHandler(deps, env = process.env) {
           const context = { facts, texts: collectTexts(draft) };
           return send(response, 200, await ai.chatField({
             language,
+            area,
             field: String(body.field || "Texto").slice(0, 200),
             multiline: body.multiline === true,
             text: String(body.text || "").slice(0, 20000),
@@ -519,8 +555,8 @@ export function createStudioHandler(deps, env = process.env) {
           const instruction = String(body.instruction || "").trim().slice(0, 1000);
           if (!instruction) throw new HttpError("Escribe o dicta primero el ajuste que quieres.");
           const draft = { template: draftLike.template, language, hideLogo: body.hideLogo === true, quickLinks: cleanQuickLinks(body.quickLinks), modules: cleanModules(body.modules, language), tweaks: cleanTweaks(body.tweaks) };
-          const { parts } = renderParts(draft, { assets: assetsFor(request, env, areaOf(body.area)) });
-          const { reply, ops } = await ai.tweakHtml({ language, instruction, parts });
+          const { parts } = renderParts(draft, { assets: assetsFor(request, env, area) });
+          const { reply, ops } = await ai.tweakHtml({ language, area, instruction, parts });
           const byScope = new Map(parts.map((p) => [p.scope, p.html]));
           // Keep only edits that match the current HTML exactly and stay safe;
           // they are applied in order, so each one sees the previous ones.
@@ -537,17 +573,17 @@ export function createStudioHandler(deps, env = process.env) {
           return send(response, 200, { reply: reply || "Ajuste aplicado.", tweak });
         }
         case "agenda":
-          return send(response, 200, { items: await ai.structureAgenda({ language, text: String(body.text || "").slice(0, 10000) }) });
+          return send(response, 200, { items: await ai.structureAgenda({ language, area, text: String(body.text || "").slice(0, 10000) }) });
         case "subjects":
-          return send(response, 200, await ai.suggestSubjects({ language, draft: { ...draftLike, modules: cleanModules(body.modules, language) }, examples: await examplesFor(draftLike) }));
+          return send(response, 200, await ai.suggestSubjects({ language, area, draft: { ...draftLike, modules: cleanModules(body.modules, language) }, examples: await examplesFor(draftLike) }));
         case "review": {
           const draft = { ...draftLike, subject: String(body.subject || ""), preheader: String(body.preheader || ""), modules: cleanModules(body.modules, language) };
           return send(response, 200, { issues: await ai.reviewStyle({ draft }), texts: collectTexts(draft) });
         }
         case "plan":
-          return send(response, 200, { modules: await ai.planLayout({ language, description: String(body.description || "").slice(0, 10000), examples: await examplesFor({ template: "paint", language }) }) });
+          return send(response, 200, { modules: await ai.planLayout({ language, area, description: String(body.description || "").slice(0, 10000), examples: await examplesFor({ template: "paint", language, area }) }) });
         case "custom": {
-          const raw = await ai.buildCustomModule({ language, purpose: String(body.purpose || ""), answer: String(body.answer || "").slice(0, 10000) });
+          const raw = await ai.buildCustomModule({ language, area, purpose: String(body.purpose || ""), answer: String(body.answer || "").slice(0, 10000) });
           const checked = sanitizeCustomHtml(raw, { report: true });
           return send(response, 200, { html: checked.html, problems: checked.problems });
         }
@@ -561,6 +597,19 @@ export function createStudioHandler(deps, env = process.env) {
 
   return {
     store,
+    // Whether the person behind this request is an administrator of the
+    // studio. Used to keep the old generator and the Salesforce connection for
+    // administrators only.
+    async isAdmin(request) {
+      let user;
+      try {
+        user = getUser(request, env);
+      } catch {
+        return false;
+      }
+      if (user.id === "local-user") return true;
+      return (await users.visit(user)).admin === true;
+    },
     async handle(request, response) {
       const url = new URL(request.url, "http://localhost");
       try {

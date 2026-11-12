@@ -1,18 +1,30 @@
 // AI consumption per person and month, kept in usage.json so admins can see
-// who spends what. The cost is an estimate from the model's list price; the
-// bill itself is in the OpenAI or Azure console.
+// who spends what. The cost is an estimate in euros: the model's list price in
+// dollars times what IESE actually pays in euros per dollar of list price on
+// Azure. The bill itself is in Azure Cost analysis.
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ownerKey } from "./store.js";
 
-// USD per million tokens, list price of gpt-5.4-mini. Override per environment.
+// Euros paid per dollar of list price. Measured on IESE's Azure bill of
+// October 2026: 3.58 EUR per million input tokens listed at 5 USD, and
+// 21.5 EUR per million output tokens listed at 30 USD (both 0.716).
+export const DEFAULT_EUR_PER_USD = 0.716;
+
+const num = (value, fallback) => (Number.isFinite(Number(value)) && String(value ?? "").trim() !== "" ? Number(value) : fallback);
+
+// Euros per million tokens. AI_PRICE_*_PER_M are the model's list prices in
+// dollars (gpt-5.4-mini by default) and AI_EUR_PER_USD turns them into euros.
 export function aiPrices(env = process.env) {
-  const num = (value, fallback) => (Number.isFinite(Number(value)) && String(value ?? "").trim() !== "" ? Number(value) : fallback);
+  const rate = num(env.AI_EUR_PER_USD, DEFAULT_EUR_PER_USD);
+  const eur = (value) => Math.round(value * rate * 10000) / 10000;
   return {
-    input: num(env.AI_PRICE_INPUT_PER_M, 0.75),
-    cached: num(env.AI_PRICE_CACHED_PER_M, 0.075),
-    output: num(env.AI_PRICE_OUTPUT_PER_M, 4.5),
+    currency: "EUR",
+    rate,
+    input: eur(num(env.AI_PRICE_INPUT_PER_M, 0.75)),
+    cached: eur(num(env.AI_PRICE_CACHED_PER_M, 0.075)),
+    output: eur(num(env.AI_PRICE_OUTPUT_PER_M, 4.5)),
   };
 }
 
