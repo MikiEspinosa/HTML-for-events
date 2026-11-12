@@ -76,9 +76,9 @@ async function busy(button, task) {
 
 const AREA_KEY = "aura-area";
 const BRAND_LOGOS = {
-  aura: { src: "/brand/iese-aura.png", alt: "IESE AURA", width: 180, height: 30 },
-  alumni: { src: "/brand/iese-alumni.png", alt: "IESE Alumni", width: 180, height: 31 },
-  programa: { src: "/brand/iese-programs.png", alt: "IESE Programs", width: 250, height: 28 },
+  aura: { src: "/brand/iese-aura.png", alt: "IESE AURA", width: 167, height: 28 },
+  alumni: { src: "/brand/iese-alumni.png", alt: "IESE Alumni", width: 203, height: 28 },
+  programa: { src: "/brand/iese-programs.png", alt: "IESE Programs", width: 249, height: 28 },
 };
 // The top-left logo follows the area the person is working in.
 function paintBrand(area) {
