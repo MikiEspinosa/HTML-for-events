@@ -177,8 +177,9 @@ export function assetsFor(request, env = process.env, area = "alumni") {
   if (areaOf(area) === "alumni") {
     if (settings.logoUrl || env.BRAND_HEADER_LOGO_URL) assets.logoUrl = settings.logoUrl || env.BRAND_HEADER_LOGO_URL;
   } else {
-    // No Alumni logo on another area's emails: no logo until one is set.
+    // No Alumni logo or Alumni links on another area's emails until its own are set.
     assets.logoUrl = settings.logoUrl;
+    for (const q of QUICK_LINKS) assets.quickLinks[q.key] = "";
   }
   assets.logoAlt = AREAS[areaOf(area)].logoAlt;
   if (env.BRAND_FOOTER_LOGO_URL) assets.footerLogoUrl = env.BRAND_FOOTER_LOGO_URL;
@@ -359,7 +360,7 @@ export function createStudioHandler(deps, env = process.env) {
         modules: MODULES,
         guides: GUIDE_VERSIONS,
         pardot: { campaignId: defaults.campaignId, folderId: defaults.folderId },
-        quickLinks: QUICK_LINKS.map((q) => ({ key: q.key, label: q.label, url: assetsFor(request, env).quickLinks[q.key] || "" })),
+        quickLinks: QUICK_LINKS.map((q) => ({ key: q.key, label: q.label, url: assetsFor(request, env).quickLinks[q.key] || "", urls: Object.fromEntries(Object.keys(AREAS).map((a) => [a, assetsFor(request, env, a).quickLinks[q.key] || ""])) })),
       });
     }
 

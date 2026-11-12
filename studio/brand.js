@@ -184,6 +184,15 @@ export const QUICK_LINKS = [
   { key: "web", label: { es: "Web de Alumni", en: "Alumni website" } },
 ];
 
+// Where the four icons above the footer lead in Alumni emails (Miki, 2026-11-12).
+// QUICK_LINK_*_URL changes them per environment and each email can set its own.
+export const ALUMNI_QUICK_LINKS = {
+  app: "https://www.linkedin.com/showcase/iese-alumni/",
+  email: "mailto:alumnicommunity@iese.edu",
+  search: "https://formscloud.iese.edu/landings-alumni-app-es/",
+  web: "https://www.alumni.iese.edu/",
+};
+
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -474,7 +483,7 @@ export function defaultAssets() {
     logoUrl: "https://prdt.iese.edu/l/501101/2026-10-26/5shjlt/501101/1793025549md7npHks/iese_alumni.png",
     footerLogoUrl: "https://prdt.iese.edu/l/501101/2022-07-19/4db9sc/501101/1658218287R6lnsP09/iese_logo.png",
     icons: { ...ICON_URLS },
-    quickLinks: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, ""])),
+    quickLinks: Object.fromEntries(QUICK_LINKS.map((q) => [q.key, ALUMNI_QUICK_LINKS[q.key] || ""])),
   };
 }
 

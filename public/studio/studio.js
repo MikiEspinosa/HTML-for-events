@@ -1513,9 +1513,12 @@ function renderDescribe() {
 function quickLinksForm() {
   const d = S.draft;
   return `<h2>Accesos rápidos</h2><p class="hint">Los 4 iconos que van encima del pie. Cambia a dónde lleva cada uno en este email. Si dejas un campo vacío se usa el enlace por defecto de la app.</p>
-    ${S.config.quickLinks.map((q) => `<label class="field"><span>${esc(t(q.label))}</span>
-      <input type="text" inputmode="url" id="f-quicklinks-${q.key}" data-quick="${q.key}" value="${esc(d.quickLinks?.[q.key] || "")}" placeholder="${esc(q.url || "https://… o mailto:…")}">
-      <small>${q.url ? `Por defecto: ${esc(q.url)}` : "Sin enlace por defecto: si lo dejas vacío, el icono no lleva a ningún sitio."}</small></label>`).join("")}`;
+    ${S.config.quickLinks.map((q) => {
+      const url = q.urls ? q.urls[d.area || "alumni"] || "" : q.url;
+      return `<label class="field"><span>${esc(t(q.label))}</span>
+      <input type="text" inputmode="url" id="f-quicklinks-${q.key}" data-quick="${q.key}" value="${esc(d.quickLinks?.[q.key] || "")}" placeholder="${esc(url || "https://… o mailto:…")}">
+      <small>${url ? `Por defecto: ${esc(url)}` : "Sin enlace por defecto: si lo dejas vacío, el icono no lleva a ningún sitio."}</small></label>`;
+    }).join("")}`;
 }
 
 function bindQuickLinks(form) {
