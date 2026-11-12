@@ -339,7 +339,8 @@ body[data-step="areas"] h1 { font-size: 44px; }
 body[data-step="areas"] .lead { font-size: 18px; margin-bottom: 36px; }
 body[data-step="areas"] .cards { gap: 20px; text-align: left; }
 .area-card { min-height: 230px; padding: 28px; overflow: hidden; }
-.area-card .logo { width: 230px; max-width: 80%; height: auto; align-self: flex-start; margin-bottom: 18px; }
+/* Same height for every area logo: the files hold the artwork with no margin. */
+.area-card .logo { height: 30px; width: auto; max-width: 100%; object-fit: contain; object-position: left center; align-self: flex-start; margin-bottom: 18px; }
 .area-card .enter { margin-top: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--red); font-weight: 600; font-size: 14px; }
 .area-card::before { content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(255,40,0,.10), transparent 70%); }
 body[data-step="areas"] .actions { border-top: 0; justify-content: center !important; margin-top: 18px; }
