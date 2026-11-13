@@ -1689,7 +1689,6 @@ async function goToFix(target) {
 function renderReview() {
   setStep("review");
   const d = S.draft;
-  d.pardot ||= { campaignId: S.config.pardot.campaignId || "", folderId: S.config.pardot.folderId || "" };
   const other = d.language === "es" ? "inglés" : "español";
   app.innerHTML = `<div class="split"><div class="panel">
       <h2>Revisión</h2>
@@ -1699,10 +1698,7 @@ function renderReview() {
       <label class="field"><span>Asunto</span><input id="subject" value="${esc(d.subject)}"></label>
       <label class="field"><span>Texto de vista previa</span><input id="preheader" value="${esc(d.preheader)}"></label>
       <label class="field"><span>Nombre de la plantilla en Pardot</span><input id="name" value="${esc(d.name)}"></label>
-      <div class="grid2"><label class="field"><span>ID de campaña (opcional)</span><input id="campaign" inputmode="numeric" value="${esc(d.pardot.campaignId)}"></label>
-        <label class="field"><span>ID de carpeta (opcional)</span><input id="folder" inputmode="numeric" value="${esc(d.pardot.folderId)}"></label></div>
-      <small class="hint">Si los dejas vacíos se usan la campaña y la carpeta fijas de Alumni configuradas en la app.</small>
-      <div class="actions"><span class="row"><button class="btn ghost" data-act="back">← Editor</button><button class="btn" data-act="download">Descargar HTML</button>
+      <div class="actions review-actions"><span class="row"><button class="btn ghost" data-act="back">← Editor</button><button class="btn" data-act="download">Descargar HTML</button>
         ${S.config.ai ? `<button class="btn" data-act="translate">Crear versión en ${other}</button>` : ""}</span>
         <button class="btn primary" data-act="publish">Crear plantilla en Pardot</button></div>
       ${S.config.dryRun ? '<p class="hint">Modo simulación: no se creará nada en Pardot.</p>' : ""}
@@ -1711,8 +1707,6 @@ function renderReview() {
   bind("subject", (v) => { d.subject = v; });
   bind("preheader", (v) => { d.preheader = v; });
   bind("name", (v) => { d.name = v; });
-  bind("campaign", (v) => { d.pardot.campaignId = v.replace(/\D/g, ""); });
-  bind("folder", (v) => { d.pardot.folderId = v.replace(/\D/g, ""); });
   const drawChecks = () => {
     const v = S.preview?.validation;
     if (!v) return;

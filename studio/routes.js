@@ -463,8 +463,10 @@ export function createStudioHandler(deps, env = process.env) {
         const input = deps.mergeDefaultInput({
           listEmailName: draft.name,
           subject: draft.subject,
-          campaignId: draft.pardot?.campaignId,
-          folderId: draft.pardot?.folderId,
+          // Campaign and folder are not shown in the UI: the draft keeps its
+          // area defaults, and an empty value falls back to them here.
+          campaignId: draft.pardot?.campaignId || pardotDefaults(draft.area).campaignId,
+          folderId: draft.pardot?.folderId || pardotDefaults(draft.area).folderId,
         });
         const payload = deps.buildEmailTemplatePayload(input, rendered);
         let result;
