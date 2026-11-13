@@ -510,3 +510,10 @@ table.users select { border: 1px solid var(--line); border-radius: 8px; padding:
 @media (prefers-reduced-motion: reduce) {
   .card, .dcard, .btn, .mailwin { transition: none; }
 }
+
+/* Review step: all buttons on one aligned grid, "Crear plantilla en Pardot" full width at the end. */
+.review-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.review-actions .row { display: contents; }
+.review-actions .btn { width: 100%; justify-content: center; white-space: nowrap; }
+.review-actions .btn.ghost { border: 1px solid var(--line); }
+.review-actions [data-act="translate"], .review-actions .btn.primary { grid-column: 1 / -1; }
