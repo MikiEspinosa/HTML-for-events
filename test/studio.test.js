@@ -534,8 +534,9 @@ test("AI cost is in euros at the rate measured on IESE's Azure bill", () => {
   const prices = aiPrices({});
   assert.equal(prices.currency, "EUR");
   assert.equal(prices.rate, 0.716);
-  assert.equal(prices.input, 0.537);
-  assert.equal(prices.output, 3.222);
+  assert.equal(prices.input, 0.716);
+  assert.equal(prices.output, 3.58);
+  assert.equal(prices.cached, 0.0716);
   assert.equal(aiPrices({ AI_EUR_PER_USD: "0.9", AI_PRICE_OUTPUT_PER_M: "10" }).output, 9);
 });
 

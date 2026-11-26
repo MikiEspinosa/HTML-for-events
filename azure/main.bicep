@@ -32,7 +32,7 @@ param pardotApiBaseUrl string = 'https://pi.pardot.com'
 param salesforceLoginUrl string = 'https://login.salesforce.com'
 
 @description('OpenAI model used by the app.')
-param openAiModel string = 'gpt-5.4-mini'
+param openAiModel string = 'gpt-6.1-terra'
 
 @description('Default timezone used by the app.')
 param defaultEventTimezone string = 'Europe/Madrid'

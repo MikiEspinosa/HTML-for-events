@@ -15,16 +15,17 @@ export const DEFAULT_EUR_PER_USD = 0.716;
 const num = (value, fallback) => (Number.isFinite(Number(value)) && String(value ?? "").trim() !== "" ? Number(value) : fallback);
 
 // Euros per million tokens. AI_PRICE_*_PER_M are the model's list prices in
-// dollars (gpt-5.4-mini by default) and AI_EUR_PER_USD turns them into euros.
+// dollars (gpt-6.1-terra by default, Azure Global Standard) and
+// AI_EUR_PER_USD turns them into euros.
 export function aiPrices(env = process.env) {
   const rate = num(env.AI_EUR_PER_USD, DEFAULT_EUR_PER_USD);
   const eur = (value) => Math.round(value * rate * 10000) / 10000;
   return {
     currency: "EUR",
     rate,
-    input: eur(num(env.AI_PRICE_INPUT_PER_M, 0.75)),
-    cached: eur(num(env.AI_PRICE_CACHED_PER_M, 0.075)),
-    output: eur(num(env.AI_PRICE_OUTPUT_PER_M, 4.5)),
+    input: eur(num(env.AI_PRICE_INPUT_PER_M, 1)),
+    cached: eur(num(env.AI_PRICE_CACHED_PER_M, 0.1)),
+    output: eur(num(env.AI_PRICE_OUTPUT_PER_M, 5)),
   };
 }
 
