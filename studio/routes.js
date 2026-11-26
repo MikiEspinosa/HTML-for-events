@@ -10,6 +10,7 @@ import { BRAND, COPY, LANGUAGES, MODULES, QUICK_LINKS, TEMPLATES, cleanTweaks, d
 import { captureEvent } from "./capture.js";
 import { formatDate, formatTime } from "./format.js";
 import { GUIDE_VERSIONS } from "./rules.js";
+import { createNews, isActive, reaches } from "./news.js";
 import { createStore, ownerKey } from "./store.js";
 import { createUsage } from "./usage.js";
 
@@ -277,6 +278,7 @@ export function createStudioHandler(deps, env = process.env) {
   const store = deps.store || createStore(dataDir);
   const users = deps.users || createUsers(dataDir, env);
   const usage = deps.usage || createUsage(dataDir, env);
+  const news = deps.news || createNews(dataDir);
   // Who made the request, so each AI reply is counted to that person.
   const caller = new AsyncLocalStorage();
   const countUsage = (tokens) => {
@@ -343,6 +345,21 @@ export function createStudioHandler(deps, env = process.env) {
     return rows;
   }
 
+  // Notices for the admin panel, with how many people of the audience read them.
+  async function adminNews() {
+    const [items, people] = await Promise.all([news.list(), users.list()]);
+    const byKey = new Map(people.map((u) => [u.key, u]));
+    return items.map((i) => {
+      const audience = people.filter((u) => reaches(i.audience, u.areas));
+      const readers = Object.keys(i.readBy || {}).map((key) => byKey.get(key)).filter(Boolean);
+      return {
+        id: i.id, title: i.title, text: i.text, audience: i.audience, createdAt: i.createdAt, expiresAt: i.expiresAt,
+        active: isActive(i), author: i.authorName || "", audienceCount: audience.length,
+        readCount: readers.length, readers: readers.map((u) => u.name || u.email).sort((a, b) => a.localeCompare(b, "es")),
+      };
+    });
+  }
+
   async function route(request, response, url) {
     const user = getUser(request, env);
     // Without sign-in (local development) the single local user may do everything.
@@ -366,8 +383,28 @@ export function createStudioHandler(deps, env = process.env) {
       });
     }
 
+    if (parts[0] === "news") {
+      const key = ownerKey(user.id);
+      if (!parts[1] && method === "GET") return send(response, 200, { news: await news.unread(key, access.areas) });
+      if (parts[1] && parts[2] === "read" && !parts[3] && method === "POST") {
+        await news.markRead(parts[1], key, access.areas);
+        return send(response, 200, { ok: true });
+      }
+      throw new HttpError("Ruta no encontrada.", 404);
+    }
+
     if (parts[0] === "admin") {
       if (!access.admin) throw new HttpError("Solo los administradores pueden ver esto.", 403);
+      if (parts[1] === "news" && !parts[2] && method === "GET") return send(response, 200, { news: await adminNews() });
+      if (parts[1] === "news" && !parts[2] && method === "POST") {
+        const body = await readJson(request);
+        await news.create({ title: body.title, text: body.text, audience: body.audience }, { key: ownerKey(user.id), name: user.name, email: user.email });
+        return send(response, 201, { news: await adminNews() });
+      }
+      if (parts[1] === "news" && parts[2] && !parts[3] && method === "DELETE") {
+        await news.remove(parts[2]);
+        return send(response, 200, { news: await adminNews() });
+      }
       if (parts[1] === "users" && !parts[2] && method === "GET") return send(response, 200, { users: await adminUsers() });
       if (parts[1] === "usage" && !parts[2] && method === "GET") return send(response, 200, { months: await usage.months(), prices: usage.prices });
       if (parts[1] === "examples" && !parts[2] && method === "GET") return send(response, 200, { examples: await adminExamples() });

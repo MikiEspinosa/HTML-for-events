@@ -25,6 +25,8 @@ const S = {
 // ---------- helpers ----------
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Escaped text with its https links made clickable.
+const linkify = (v) => esc(v).replace(/https:\/\/[^\s<]+[^\s<.,;:!?)]/g, (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
 const t = (obj) => (obj ? obj[S.draft?.language === "en" ? "en" : "es"] || obj.es : "");
 const uid = () => `m${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
 const $ = (sel, root = app) => root.querySelector(sel);
@@ -814,7 +816,7 @@ async function renderAdmin(tab = "users") {
   document.body.dataset.step = "admin";
   if (!S.config.user.admin) return go("#/");
   app.innerHTML = `<p class="empty">Cargando…</p>`;
-  let [{ users }, { months, prices }, { examples }] = await Promise.all([api("admin/users"), api("admin/usage"), api("admin/examples")]);
+  let [{ users }, { months, prices }, { examples }, { news }] = await Promise.all([api("admin/users"), api("admin/usage"), api("admin/examples"), api("admin/news")]);
   const tokens = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString("es-ES", { maximumFractionDigits: 1 })} M` : n >= 1e3 ? `${Math.round(n / 1e3).toLocaleString("es-ES")} k` : String(n || 0));
   const eur = (n) => `${(n || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
   const perM = (n) => `${(n || 0).toLocaleString("es-ES", { maximumFractionDigits: 3 })} €`;
@@ -873,12 +875,28 @@ async function renderAdmin(tab = "users") {
       ${e.status === "pending" ? `<button class="btn small primary" data-approve="${e.id}">Aprobar</button>` : `<button class="btn small ghost" data-unapprove="${e.id}">Retirar</button>`}
       <button class="btn small ghost" data-delex="${e.id}">Eliminar</button></div>`).join("")}</div>` : '<p class="empty">Todavía no hay emails aprendidos.</p>'}`;
 
+  const audienceLabel = { ambos: "Alumni y Programa", alumni: "Alumni", programa: "Programa" };
+  const newsTab = () => `<p class="hint">Escribe un aviso y elige a quién va. Durante los próximos 7 días, cada persona de ese grupo lo verá al entrar en A.U.R.A. hasta que pulse «Lo he leído». Después ya no le vuelve a aparecer.</p>
+    <div class="news-form">
+      <label class="nf"><span>Título</span><input id="news-title" maxlength="120" placeholder="Por ejemplo: Nuevo modelo de IA"></label>
+      <label class="nf"><span>Mensaje</span><textarea id="news-text" rows="5" maxlength="4000" placeholder="Lo que quieres contar. Los enlaces que empiecen por https:// se podrán pulsar."></textarea></label>
+      <fieldset class="nf"><legend>¿Quién lo ve?</legend><div class="choices">${Object.entries(audienceLabel).map(([v, l], i) => `<label class="choice"><input type="radio" name="news-audience" value="${v}" ${i === 0 ? "checked" : ""}> ${l}</label>`).join("")}</div></fieldset>
+      <div><button type="button" class="btn primary" id="news-publish">${ICONS.send} Publicar aviso</button></div>
+    </div>
+    <h2 class="news-h">Avisos publicados</h2>
+    ${news.length ? `<div class="drafts news-list">${news.map((n) => `<div class="draft"><div class="grow"><div class="title">${esc(n.title)}</div>
+      <div class="meta"><span class="badge ${n.audience === "ambos" ? "" : n.audience}">${audienceLabel[n.audience] || esc(n.audience)}</span> ${esc(n.author || "")} · ${day(n.createdAt)} · ${n.active ? `visible hasta el ${day(n.expiresAt)}` : "ya no se muestra"}</div>
+      <div class="meta">Leído por ${n.readCount} de ${n.audienceCount} ${n.audienceCount === 1 ? "persona" : "personas"}</div>
+      <details><summary class="meta">Ver mensaje${n.readers.length ? " y quién lo ha leído" : ""}</summary><p style="white-space:pre-wrap">${linkify(n.text)}</p>${n.readers.length ? `<p class="meta">Lo han leído: ${n.readers.map(esc).join(", ")}</p>` : ""}</details></div>
+      ${n.active ? '<span class="pill ok">Activo</span>' : '<span class="pill">Caducado</span>'}
+      <button class="btn small ghost" data-delnews="${n.id}">Eliminar</button></div>`).join("")}</div>` : '<p class="empty">Todavía no se ha publicado ningún aviso.</p>'}`;
+
   const draw = () => {
     const pending = examples.filter((e) => e.status === "pending").length;
-    const tabs = [["users", "users", "Usuarios", 0], ["usage", "euro", "Consumo de IA", 0], ["examples", "spark", "Emails aprendidos", pending]];
+    const tabs = [["users", "users", "Usuarios", 0], ["usage", "euro", "Consumo de IA", 0], ["examples", "spark", "Emails aprendidos", pending], ["news", "news", "Tablón de avisos", 0]];
     app.innerHTML = `<p class="eyebrow">Administración</p><h1>Panel de A.U.R.A.</h1>
       <div class="tabs" role="tablist">${tabs.map(([key, icon, text, count]) => `<button type="button" role="tab" data-tab="${key}" class="${key === tab ? "on" : ""}" aria-selected="${key === tab}">${ICONS[icon]} ${text}${count ? ` <em>${count}</em>` : ""}</button>`).join("")}</div>
-      <div role="tabpanel">${tab === "usage" ? usageTab() : tab === "examples" ? examplesTab() : usersTab()}</div>
+      <div role="tabpanel">${tab === "usage" ? usageTab() : tab === "examples" ? examplesTab() : tab === "news" ? newsTab() : usersTab()}</div>
       <div class="actions" style="justify-content:flex-start"><a class="btn ghost" href="#/">Volver</a></div>`;
     $$("[data-tab]").forEach((b) => b.onclick = () => { tab = b.dataset.tab; draw(); });
     const review = (b, request) => busy(b, async () => {
@@ -906,6 +924,24 @@ async function renderAdmin(tab = "users") {
         }
       });
     };
+    const publish = $("#news-publish");
+    if (publish) publish.onclick = () => busy(publish, async () => {
+      const body = { title: $("#news-title").value, text: $("#news-text").value, audience: $("input[name=news-audience]:checked")?.value };
+      ({ news } = await api("admin/news", { method: "POST", body }));
+      notify("Aviso publicado.");
+      draw();
+    });
+    $$("[data-delnews]").forEach((b) => b.onclick = async () => {
+      if (await confirmDialog({ title: "¿Eliminar este aviso?", text: "Dejará de mostrarse a quien todavía no lo haya leído. No se puede deshacer.", yes: "Eliminar", no: "Cancelar" }) !== "yes") return;
+      busy(b, async () => {
+        try {
+          ({ news } = await api(`admin/news/${b.dataset.delnews}`, { method: "DELETE" }));
+          notify("Aviso eliminado.");
+        } finally {
+          draw();
+        }
+      });
+    });
     $$("[data-access]").forEach((el) => el.onchange = () => save(el.dataset.access, { access: el.value }, el));
     $$("[data-admin]").forEach((el) => el.onchange = () => save(el.dataset.admin, { admin: el.checked }, el));
   };
@@ -1857,6 +1893,36 @@ async function boot() {
   if (S.config.dryRun) { mode.hidden = false; mode.textContent = "Modo simulación"; }
   window.addEventListener("hashchange", render);
   render();
+  showNews();
+}
+
+// Notices from the administrators not read yet, one after another. Closing
+// without «Lo he leído» shows it again on the next visit.
+async function showNews() {
+  let items = [];
+  try {
+    ({ news: items } = await api("news"));
+  } catch {
+    return;
+  }
+  for (const item of items) {
+    const body = document.getElementById("dialog-body");
+    const when = new Date(item.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+    body.innerHTML = `<p class="eyebrow news-eyebrow">${ICONS.news} Aviso${item.author ? ` de ${esc(item.author)}` : ""} · ${esc(when)}</p><h2>${esc(item.title)}</h2>
+      <p class="news-text">${linkify(item.text)}</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn ghost" value="later">Más tarde</button><button class="btn primary" value="read">Lo he leído</button></div>`;
+    const answer = await new Promise((resolve) => {
+      dialog.returnValue = "";
+      dialog.onclose = () => resolve(dialog.returnValue || "later");
+      dialog.showModal();
+    });
+    if (answer !== "read") return;
+    try {
+      await api(`news/${item.id}/read`, { method: "POST" });
+    } catch {
+      return;
+    }
+  }
 }
 
 boot();

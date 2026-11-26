@@ -517,3 +517,21 @@ table.users select { border: 1px solid var(--line); border-radius: 8px; padding:
 .review-actions .btn { width: 100%; justify-content: center; white-space: nowrap; }
 .review-actions .btn.ghost { border: 1px solid var(--line); }
 .review-actions [data-act="translate"], .review-actions .btn.primary { grid-column: 1 / -1; }
+
+/* Notice board */
+.news-form { display: grid; gap: 16px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; max-width: 720px; }
+.nf { display: grid; gap: 6px; font-size: 14px; font-weight: 600; border: 0; padding: 0; margin: 0; }
+.nf legend { padding: 0; margin-bottom: 6px; }
+.nf input, .nf textarea { font-weight: 400; border: 1px solid #DCDCE2; border-radius: 10px; padding: 11px 13px; background: #fff; }
+.nf textarea { resize: vertical; line-height: 1.5; min-height: 110px; }
+.nf input:focus, .nf textarea:focus { outline: 3px solid var(--red-soft); border-color: var(--red); }
+.choices { display: flex; flex-wrap: wrap; gap: 10px; }
+.choice { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; border: 1px solid #DCDCE2; border-radius: 10px; padding: 9px 14px; cursor: pointer; background: #fff; }
+.choice:has(input:checked) { border-color: var(--red); background: var(--red-soft); }
+.choice input { accent-color: var(--red); margin: 0; }
+.news-h { font-size: 18px; margin: 28px 0 12px; }
+.news-eyebrow { display: inline-flex; align-items: center; gap: 6px; }
+.news-eyebrow .i { width: 14px; height: 14px; }
+dialog p.news-text { white-space: pre-wrap; color: var(--ink, #1A1A1A); }
+.news-list .draft { flex-wrap: wrap; }
+.news-list .draft .grow { flex-basis: 260px; }
