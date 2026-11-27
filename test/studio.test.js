@@ -10,9 +10,9 @@ import { BRAND, cleanTweaks, renderEmail, sanitizeCustomHtml, validateDraft, wit
 import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
 import { createStudioHandler, getUser, modulesForInvite, pardotFileBody, pardotReason } from "../studio/routes.js";
-import { createStore } from "../studio/store.js";
+import { createStore, ownerKey } from "../studio/store.js";
 import { createNews } from "../studio/news.js";
-import { aiPrices } from "../studio/usage.js";
+import { aiPrices, createUsage } from "../studio/usage.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
 
@@ -609,6 +609,32 @@ test("notices stop showing a week after they are posted", async () => {
     await news.create({ title: "T", text: "x", audience: "programa" }, { key: "k1", name: "Miki" }, start);
     assert.equal((await news.unread("k2", ["programa"], start + 6 * 86400000)).length, 1);
     assert.equal((await news.unread("k2", ["programa"], start + 7 * 86400000 + 1)).length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("changing the AI model does not reprice what was already spent", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "studio-reprice-"));
+  try {
+    const { writeFile } = await import("node:fs/promises");
+    const key = ownerKey("id-ana");
+    // October and the start of November were saved by the old version, with tokens only.
+    await writeFile(path.join(dir, "usage.json"), JSON.stringify({ [key]: {
+      "2026-10": { calls: 1, input: 1_000_000, cached: 0, output: 1_000_000 },
+      "2026-11": { calls: 1, input: 1_000_000, cached: 0, output: 0 },
+    } }));
+    const env = { AI_EUR_PER_USD: "1", AI_PRICE_INPUT_PER_M: "1", AI_PRICE_CACHED_PER_M: "0.1", AI_PRICE_OUTPUT_PER_M: "5" };
+    const usage = createUsage(dir, env);
+    await usage.record("id-ana", { input: 1_000_000, cached: 0, output: 0 }, new Date("2026-11-27T12:00:00Z"));
+
+    const months = await usage.months();
+    const byMonth = Object.fromEntries(months.map((m) => [m.month, m.cost]));
+    assert.ok(Math.abs(byMonth["2026-10"] - (0.75 + 4.5)) < 1e-9, "old months keep gpt-5.4-mini prices");
+    assert.ok(Math.abs(byMonth["2026-11"] - (0.75 + 1)) < 1e-9, "a mixed month adds the old part and each new call at its own price");
+    const ana = (await usage.summary("2026-11"))[key];
+    assert.ok(Math.abs(ana.month.cost - 1.75) < 1e-9);
+    assert.ok(Math.abs(ana.total.cost - 7) < 1e-9);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -861,7 +861,7 @@ async function renderAdmin(tab = "users") {
       ${stat("euro", eur(thisMonth().cost), "coste estimado este mes")}
       ${stat("euro", eur(months.reduce((n, m) => n + m.cost, 0)), "coste estimado total")}
     </div>
-    <p class="hint">Estimado en euros con lo que el IESE paga en Azure por este modelo: ${perM(prices.input)} por millón de tokens de entrada, ${perM(prices.cached)} si se reutilizan de la caché y ${perM(prices.output)} por millón de salida. La factura exacta está en Azure Cost analysis.</p>
+    <p class="hint">Estimado en euros con lo que el IESE paga en Azure por este modelo: ${perM(prices.input)} por millón de tokens de entrada, ${perM(prices.cached)} si se reutilizan de la caché y ${perM(prices.output)} por millón de salida. Cada uso se guarda con el precio del modelo de ese momento, así que cambiar de modelo no recalcula lo ya gastado. La factura exacta está en Azure Cost analysis.</p>
     <div class="table-wrap"><table class="users">
       <thead><tr><th>Mes</th><th class="num">Usos de IA</th><th class="num">Personas</th><th class="num">Tokens entrada</th><th class="num">Tokens salida</th><th class="num">Coste estimado</th></tr></thead>
       <tbody>${months.map((m) => `<tr><td>${esc(monthName(m.month))}</td><td class="num">${m.calls}</td><td class="num">${m.people}</td><td class="num">${tokens(m.input)}</td><td class="num">${tokens(m.output)}</td><td class="num">${eur(m.cost)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">Todavía no se ha usado la IA desde que se mide el consumo.</td></tr>'}</tbody>

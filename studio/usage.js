@@ -1,7 +1,8 @@
 // AI consumption per person and month, kept in usage.json so admins can see
 // who spends what. The cost is an estimate in euros: the model's list price in
 // dollars times what IESE actually pays in euros per dollar of list price on
-// Azure. The bill itself is in Azure Cost analysis.
+// Azure. Each call adds its cost at the price of that moment, so changing the
+// model does not reprice the past. The bill itself is in Azure Cost analysis.
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -44,9 +45,23 @@ export function costOf({ input = 0, cached = 0, output = 0 }, prices) {
   return ((input - cached) * prices.input + cached * prices.cached + output * prices.output) / 1_000_000;
 }
 
+// Usage saved before each month kept its own cost was made with gpt-5.4-mini
+// (0.75 / 0.075 / 4.5 USD per million tokens), so it keeps that price when
+// the configured model changes.
+export function legacyPrices(env = process.env) {
+  return aiPrices({ AI_EUR_PER_USD: env.AI_EUR_PER_USD, AI_PRICE_INPUT_PER_M: 0.75, AI_PRICE_CACHED_PER_M: 0.075, AI_PRICE_OUTPUT_PER_M: 4.5 });
+}
+
+// Cost of a saved month: what each call cost when it was made, or the old
+// model's price for months saved before costs were kept.
+export function rowCost(row, legacy) {
+  return row?.cost !== undefined && Number.isFinite(Number(row.cost)) ? Number(row.cost) : costOf(row || {}, legacy);
+}
+
 export function createUsage(dataDir, env = process.env) {
   const file = path.join(dataDir, "usage.json");
   const prices = aiPrices(env);
+  const legacy = legacyPrices(env);
   let cache = null;
   let queue = Promise.resolve();
 
@@ -78,7 +93,10 @@ export function createUsage(dataDir, env = process.env) {
       const month = when.toISOString().slice(0, 7);
       const next = queue.then(async () => {
         const all = await load();
-        const row = ((all[key] ||= {})[month] ||= { calls: 0, input: 0, cached: 0, output: 0 });
+        const row = ((all[key] ||= {})[month] ||= { calls: 0, input: 0, cached: 0, output: 0, cost: 0 });
+        // A month started before costs were kept: what it had so far was the old model.
+        if (row.cost === undefined) row.cost = costOf(row, legacy);
+        row.cost += costOf(tokens, prices);
         row.calls += 1;
         row.input += tokens.input;
         row.cached += tokens.cached;
@@ -95,12 +113,15 @@ export function createUsage(dataDir, env = process.env) {
       const all = await load();
       const out = {};
       for (const [key, months] of Object.entries(all)) {
-        const total = { calls: 0, input: 0, cached: 0, output: 0 };
-        for (const row of Object.values(months)) for (const k of Object.keys(total)) total[k] += Number(row[k]) || 0;
+        const total = { calls: 0, input: 0, cached: 0, output: 0, cost: 0 };
+        for (const row of Object.values(months)) {
+          for (const k of ["calls", "input", "cached", "output"]) total[k] += Number(row[k]) || 0;
+          total.cost += rowCost(row, legacy);
+        }
         const current = { calls: 0, input: 0, cached: 0, output: 0, ...months[month] };
         out[key] = {
-          month: { ...current, tokens: current.input + current.output, cost: costOf(current, prices) },
-          total: { ...total, tokens: total.input + total.output, cost: costOf(total, prices) },
+          month: { ...current, tokens: current.input + current.output, cost: months[month] ? rowCost(months[month], legacy) : 0 },
+          total: { ...total, tokens: total.input + total.output },
         };
       }
       return out;
@@ -113,14 +134,15 @@ export function createUsage(dataDir, env = process.env) {
       const byMonth = {};
       for (const months of Object.values(all)) {
         for (const [month, row] of Object.entries(months)) {
-          const m = (byMonth[month] ||= { month, calls: 0, input: 0, cached: 0, output: 0, people: 0 });
+          const m = (byMonth[month] ||= { month, calls: 0, input: 0, cached: 0, output: 0, cost: 0, people: 0 });
           for (const k of ["calls", "input", "cached", "output"]) m[k] += Number(row[k]) || 0;
+          m.cost += rowCost(row, legacy);
           m.people += 1;
         }
       }
       return Object.values(byMonth)
         .sort((a, b) => b.month.localeCompare(a.month))
-        .map((m) => ({ ...m, tokens: m.input + m.output, cost: costOf(m, prices) }));
+        .map((m) => ({ ...m, tokens: m.input + m.output }));
     },
   };
 }
