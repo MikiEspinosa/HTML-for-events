@@ -11,6 +11,7 @@ import { captureEvent, checkCaptureUrl, fetchPage } from "../studio/capture.js";
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from "../studio/format.js";
 import { createStudioHandler, getUser, modulesForInvite, pardotFileBody, pardotReason } from "../studio/routes.js";
 import { createStore } from "../studio/store.js";
+import { createNews } from "../studio/news.js";
 import { aiPrices } from "../studio/usage.js";
 
 const fixture = await readFile(new URL("./fixtures/reunion.html", import.meta.url), "utf8");
@@ -533,8 +534,9 @@ test("AI cost is in euros at the rate measured on IESE's Azure bill", () => {
   const prices = aiPrices({});
   assert.equal(prices.currency, "EUR");
   assert.equal(prices.rate, 0.716);
-  assert.equal(prices.input, 0.537);
-  assert.equal(prices.output, 3.222);
+  assert.equal(prices.input, 0.716);
+  assert.equal(prices.output, 3.58);
+  assert.equal(prices.cached, 0.0716);
   assert.equal(aiPrices({ AI_EUR_PER_USD: "0.9", AI_PRICE_OUTPUT_PER_M: "10" }).output, 9);
 });
 
@@ -560,4 +562,54 @@ test("Pardot's own error text is picked out for the person", () => {
   assert.equal(pardotReason({ error: "invalid_grant", error_description: "expired access/refresh token" }), "expired access/refresh token");
   assert.equal(pardotReason({ raw: "<html><body>Service Unavailable</body></html>" }), "Service Unavailable");
   assert.equal(pardotReason(undefined), "");
+});
+
+test("admins post notices that their audience sees until they mark them as read", async (t) => {
+  const { call } = await startStudio(t);
+  const as = (email, id) => ({ "x-ms-client-principal-name": email, "x-ms-client-principal-id": id });
+  const miki = as("maespinosa@iese.edu", "id-miki");
+  const ana = as("ana@iese.edu", "id-ana");
+  const carmen = as("cgarciam@iese.edu", "id-carmen");
+  for (const who of [miki, ana, carmen]) await call("config", "GET", undefined, who);
+
+  assert.equal((await call("admin/news", "POST", { title: "Hola", text: "x", audience: "ambos" }, ana)).status, 403, "only admins post");
+  assert.equal((await call("admin/news", "POST", { title: "", text: "x", audience: "ambos" }, miki)).status, 400);
+  assert.equal((await call("admin/news", "POST", { title: "T", text: "x", audience: "todos" }, miki)).status, 400);
+
+  await call("admin/news", "POST", { title: "Para Alumni", text: "Solo Alumni", audience: "alumni" }, miki);
+  const posted = await call("admin/news", "POST", { title: "Para todos", text: "Nuevo modelo https://example.com", audience: "ambos" }, miki);
+  assert.equal(posted.status, 201);
+  const all = posted.body.news.find((n) => n.title === "Para todos");
+  assert.equal(all.active, true);
+  assert.equal(Date.parse(all.expiresAt) - Date.parse(all.createdAt), 7 * 24 * 3600 * 1000, "visible for one week");
+  assert.equal(all.audienceCount, 3);
+
+  assert.deepEqual((await call("news", "GET", undefined, ana)).body.news.map((n) => n.title), ["Para todos"], "Programa does not see Alumni notices");
+  assert.deepEqual((await call("news", "GET", undefined, carmen)).body.news.map((n) => n.title), ["Para Alumni", "Para todos"]);
+
+  assert.equal((await call(`news/${all.id}/read`, "POST", undefined, ana)).status, 200);
+  assert.deepEqual((await call("news", "GET", undefined, ana)).body.news, [], "read notices do not show again");
+  const alumniOnly = posted.body.news.find((n) => n.title === "Para Alumni");
+  assert.equal((await call(`news/${alumniOnly.id}/read`, "POST", undefined, ana)).status, 404, "people outside the audience cannot touch it");
+
+  const listed = (await call("admin/news", "GET", undefined, miki)).body.news.find((n) => n.id === all.id);
+  assert.equal(listed.readCount, 1);
+  assert.deepEqual(listed.readers, ["ana"]);
+
+  const removed = await call(`admin/news/${all.id}`, "DELETE", undefined, miki);
+  assert.ok(!removed.body.news.some((n) => n.id === all.id));
+  assert.deepEqual((await call("news", "GET", undefined, carmen)).body.news.map((n) => n.title), ["Para Alumni"]);
+});
+
+test("notices stop showing a week after they are posted", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "studio-news-"));
+  try {
+    const news = createNews(dir);
+    const start = Date.parse("2026-11-26T09:00:00Z");
+    await news.create({ title: "T", text: "x", audience: "programa" }, { key: "k1", name: "Miki" }, start);
+    assert.equal((await news.unread("k2", ["programa"], start + 6 * 86400000)).length, 1);
+    assert.equal((await news.unread("k2", ["programa"], start + 7 * 86400000 + 1)).length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

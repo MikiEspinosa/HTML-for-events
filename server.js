@@ -1315,7 +1315,7 @@ export function resolveAiConfiguration(env = process.env) {
     return {
       provider: "openai",
       authentication: "api-key",
-      model: env.OPENAI_MODEL || "gpt-5.4-mini",
+      model: env.OPENAI_MODEL || "gpt-6.1-terra",
     };
   }
 
